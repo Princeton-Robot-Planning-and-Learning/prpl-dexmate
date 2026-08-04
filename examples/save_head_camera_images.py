@@ -1,5 +1,6 @@
 """Example: capture head camera RGB and depth images and save them for inspection."""
 
+import time
 from pathlib import Path
 
 import cv2
@@ -14,9 +15,20 @@ configs = get_robot_config()
 configs.sensors["head_camera"].enabled = True
 robot = Robot(configs=configs)
 
-camera_data = robot.sensors.head_camera.get_obs(
-    obs_keys=["left_rgb", "right_rgb", "depth"]
-)
+obs_keys = ["left_rgb", "right_rgb", "depth"]
+
+# Streams start asynchronously, so early reads can return None for slower
+# streams (depth in particular); poll until every requested key has data.
+deadline = time.monotonic() + 10.0
+while True:
+    camera_data = robot.sensors.head_camera.get_obs(obs_keys=obs_keys)
+    missing = [key for key in obs_keys if camera_data.get(key) is None]
+    if not missing:
+        break
+    if time.monotonic() > deadline:
+        robot.shutdown()
+        raise TimeoutError(f"No data received for: {missing}")
+    time.sleep(0.2)
 
 for key in ("left_rgb", "right_rgb"):
     rgb = camera_data[key]
