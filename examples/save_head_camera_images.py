@@ -11,7 +11,7 @@ output_dir = Path(__file__).parent / "head_camera_output"
 output_dir.mkdir(exist_ok=True)
 
 configs = get_robot_config()
-configs.sensors.head_camera.enable = True
+configs.sensors["head_camera"].enabled = True
 robot = Robot(configs=configs)
 
 camera_data = robot.sensors.head_camera.get_obs(
