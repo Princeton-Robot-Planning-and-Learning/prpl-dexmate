@@ -7,6 +7,7 @@ from prpl_dexmate.motion import (
     follow_joint_trajectory,
     min_jerk_trajectory,
     move_and_wait,
+    waypoint_trajectory,
 )
 
 
@@ -96,3 +97,18 @@ def test_min_jerk_trajectory_endpoints_and_shape() -> None:
     assert np.allclose(trajectory[-1], end)
     steps = np.diff(trajectory[:, 0])
     assert np.all(steps >= 0)
+
+
+def test_waypoint_trajectory_passes_through_waypoints() -> None:
+    """The concatenated trajectory hits every waypoint in order."""
+    waypoints = [np.zeros(2), np.array([1.0, -1.0]), np.array([0.5, 0.5])]
+    trajectory = waypoint_trajectory(waypoints, segment_duration=1.0, hz=10.0)
+    assert np.allclose(trajectory[0], waypoints[0])
+    assert np.allclose(trajectory[10], waypoints[1])
+    assert np.allclose(trajectory[-1], waypoints[2])
+
+
+def test_waypoint_trajectory_requires_two_waypoints() -> None:
+    """A single waypoint is not a trajectory."""
+    with pytest.raises(ValueError, match="two waypoints"):
+        waypoint_trajectory([np.zeros(2)], segment_duration=1.0)

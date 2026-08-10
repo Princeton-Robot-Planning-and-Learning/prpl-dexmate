@@ -84,3 +84,26 @@ def min_jerk_trajectory(
     phase = np.linspace(0.0, 1.0, num_frames)
     s = 10 * phase**3 - 15 * phase**4 + 6 * phase**5
     return start + s[:, None] * (end - start)
+
+
+def waypoint_trajectory(
+    waypoints: list[np.ndarray],
+    segment_duration: float,
+    hz: float = 100.0,
+) -> np.ndarray:
+    """Build one trajectory through a sequence of waypoints.
+
+    Consecutive waypoints are joined by min-jerk segments of
+    segment_duration seconds each, so the motion pauses momentarily
+    (zero velocity) at every waypoint. Returns an array of shape
+    (num_frames, num_joints) for follow_joint_trajectory.
+    """
+    if len(waypoints) < 2:
+        raise ValueError("Need at least two waypoints")
+    segments: list[np.ndarray] = []
+    for a, b in zip(waypoints[:-1], waypoints[1:]):
+        segment = min_jerk_trajectory(a, b, segment_duration, hz)
+        if segments:
+            segment = segment[1:]
+        segments.append(segment)
+    return np.vstack(segments)
