@@ -10,6 +10,7 @@ readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
    "dexcontrol",
+   "dexmate-urdf",
    "opencv-python",
 ]
 
@@ -56,5 +57,6 @@ exclude = ["venv/*", ".venv/*"]
 module = [
     "cv2.*",
     "dexcontrol.*",
+    "dexmate_urdf.*",
 ]
 ignore_missing_imports = true

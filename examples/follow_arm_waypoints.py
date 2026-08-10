@@ -5,6 +5,7 @@ import argparse
 import numpy as np
 from dexcontrol.robot import Robot
 
+from prpl_dexmate.limits import validate_trajectory
 from prpl_dexmate.motion import follow_joint_trajectory, waypoint_trajectory
 
 parser = argparse.ArgumentParser(description=__doc__)
@@ -40,6 +41,7 @@ print(
     f"Following {trajectory.shape[0]}-frame trajectory through "
     f"{len(waypoints)} waypoints at {args.hz:.0f} Hz"
 )
+validate_trajectory(trajectory, f"{args.side}_arm", hz=args.hz)
 max_error = follow_joint_trajectory(arm, trajectory, hz=args.hz)
 print(f"Done. Max tracking error: {max_error:.4f} rad")
 print(f"Final {args.side} arm joint positions: {arm.get_joint_pos()}")
