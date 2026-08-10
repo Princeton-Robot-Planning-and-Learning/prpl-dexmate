@@ -17,9 +17,12 @@ arm = robot.left_arm if args.side == "left" else robot.right_arm
 initial_pos = np.asarray(arm.get_joint_pos())
 print(f"Initial {args.side} arm joint positions: {initial_pos}")
 
+# Rotate toward joint center so the move cannot run into the wrist's limit,
+# whichever side (and sign convention) the arm has.
+delta = -0.5 if initial_pos[-1] > 0 else 0.5
 target = initial_pos.copy()
-target[-1] += 0.5
-print(f"Rotating wrist joint by +0.5 rad to: {target}")
+target[-1] += delta
+print(f"Rotating wrist joint by {delta:+.1f} rad to: {target}")
 move_and_wait(arm, target, timeout=10.0)
 print(f"Arm joint positions after move: {arm.get_joint_pos()}")
 
