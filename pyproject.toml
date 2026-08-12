@@ -13,7 +13,7 @@ dependencies = [
    "dexmate-urdf",
    "gymnasium",
    "hydra-core",
-   "kindergarden[prpl-kinematics] @ git+https://github.com/Princeton-Robot-Planning-and-Learning/kindergarden.git@c9b747c",
+   "kindergarden[prpl-kinematics]>=0.2.1",
    "numpy",
    "opencv-python",
    "prpl_utils>=0.0.7",
