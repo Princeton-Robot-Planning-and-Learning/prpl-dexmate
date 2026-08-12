@@ -18,6 +18,15 @@ mode: fake
 seed: 0
 max_eval_steps: 100
 
+# Video recording. When `record.video` is true and a log dir is available
+# (the Hydra runtime dir, or an explicit `log_dir` argument to
+# run_pipeline), every tick's rendered frame is composed into video.mp4.
+# Only envs whose render() returns frames produce video — sim does; the
+# real env has no renderer yet.
+record:
+  video: false
+  fps: 10
+
 # The planning agent. ScriptedJointDeltaAgent is the placeholder until a
 # VegaMotion3D env model lands in kinder-baselines; swapping in a bilevel
 # planning agent is a config change here, not a code change.
