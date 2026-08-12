@@ -1,0 +1,28 @@
+# Top-level pipeline config. Pick an env via Hydra group:
+#   python scripts/run_pipeline.py env=vega_motion3d mode=sim
+#
+# `mode` is a plain string field rather than its own group — each env
+# yaml exposes `pipelines.{fake,sim,real}` and the pipeline selects the
+# right one with `cfg.env.pipelines[cfg.mode]`. Adding a new env is one
+# new file under conf/env/; no code changes.
+
+defaults:
+  - _self_
+  - env: ???
+
+hydra:
+  run:
+    dir: ./logs/${now:%Y-%m-%d}/${now:%H-%M-%S}
+
+mode: fake
+seed: 0
+max_eval_steps: 100
+
+# The planning agent. ScriptedJointDeltaAgent is the placeholder until a
+# VegaMotion3D env model lands in kinder-baselines; swapping in a bilevel
+# planning agent is a config change here, not a code change.
+agent:
+  _target_: prpl_dexmate.agents.ScriptedJointDeltaAgent
+  joint_index: 6
+  delta: 0.02
+  num_steps: 10
