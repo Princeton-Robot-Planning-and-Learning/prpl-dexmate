@@ -5,7 +5,8 @@ package is testable without the real robot.
 """
 
 import abc
-from typing import Any
+
+from dexcontrol.robot import Robot
 
 from prpl_dexmate.interfaces.joint_interface import (
     FakeJointInterface,
@@ -67,13 +68,7 @@ class RealInterface(Interface):
     """
 
     def __init__(self) -> None:
-        # Imported here so that fake-mode runs and tests never touch
-        # dexcontrol's connection machinery.
-        from dexcontrol.robot import (  # pylint: disable=import-outside-toplevel
-            Robot,
-        )
-
-        self._robot: Any = Robot()
+        self._robot = Robot()
         self.right_arm_interface = RealJointInterface(self._robot.right_arm)
         self.left_arm_interface = RealJointInterface(self._robot.left_arm)
         self.head_interface = RealJointInterface(self._robot.head)

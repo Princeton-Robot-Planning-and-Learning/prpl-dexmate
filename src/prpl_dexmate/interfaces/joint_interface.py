@@ -5,9 +5,26 @@ difference is the joint count, so one interface family covers all three.
 """
 
 import abc
-from typing import Any
+from typing import Protocol
 
 import numpy as np
+from numpy.typing import ArrayLike, NDArray
+
+
+class JointComponent(Protocol):
+    """Structural type for a dexcontrol joint component handle.
+
+    dexcontrol ships untyped (no py.typed), so rather than typing handles
+    as Any, this Protocol pins down the two methods this package calls;
+    ``robot.right_arm`` / ``robot.left_arm`` / ``robot.head`` all satisfy
+    it.
+    """
+
+    def get_joint_pos(self) -> ArrayLike:
+        """Return the component's current joint positions."""
+
+    def set_joint_pos(self, joint_pos: NDArray[np.float64]) -> None:
+        """Command joint positions (streaming, non-blocking)."""
 
 
 class JointInterface(abc.ABC):
@@ -50,7 +67,7 @@ class RealJointInterface(JointInterface):
     by the composite interface, not here.
     """
 
-    def __init__(self, component: Any) -> None:
+    def __init__(self, component: JointComponent) -> None:
         self._component = component
 
     def get_joint_state(self) -> list[float]:
