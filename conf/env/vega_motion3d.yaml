@@ -1,0 +1,50 @@
+# kinder/VegaMotion3D-v0 — the right arm reaches a target position.
+
+env_name: vega_motion3d
+env_id: kinder/VegaMotion3D-v0
+
+# Used by the fake-mode target source: where the agent thinks the target
+# is. (Sim mode reads the target from the kinder env directly; a future
+# real-mode perceiver will estimate it from the head camera.)
+target_pose: [0.5, -0.4, 0.8]
+
+pipelines:
+  fake:
+    real_env:
+      _target_: prpl_dexmate.real_env.RealVegaEnv
+      # FakeInterface snaps to commanded goals, so the executor converges
+      # on the first tick; skip the per-tick sleep to keep tests fast.
+      control_period: 0.0
+      interface:
+        _target_: prpl_dexmate.interfaces.interface.FakeInterface
+    perceiver:
+      _target_: prpl_dexmate.real_sim.perceivers.vega_motion3d.VegaMotion3DPerceiver
+      target_source:
+        _target_: prpl_dexmate.real_sim.perceivers.target_source.ConstantTargetSource
+        x: ${env.target_pose.0}
+        y: ${env.target_pose.1}
+        z: ${env.target_pose.2}
+    plan_executor:
+      _target_: prpl_dexmate.real_sim.plan_executors.vega_motion3d.VegaMotion3DPlanExecutor
+  sim:
+    real_env:
+      _target_: prpl_dexmate.sim_env.KinderSimEnv
+      env_id: ${env.env_id}
+    perceiver:
+      _target_: prpl_dexmate.real_sim.perceivers.passthrough.PassThroughPerceiver
+    plan_executor:
+      _target_: prpl_dexmate.real_sim.plan_executors.passthrough.PassThroughPlanExecutor
+  real:
+    real_env:
+      _target_: prpl_dexmate.real_env.RealVegaEnv
+      interface:
+        _target_: prpl_dexmate.interfaces.interface.RealInterface
+    perceiver:
+      _target_: prpl_dexmate.real_sim.perceivers.vega_motion3d.VegaMotion3DPerceiver
+      target_source:
+        _target_: prpl_dexmate.real_sim.perceivers.target_source.ConstantTargetSource
+        x: ${env.target_pose.0}
+        y: ${env.target_pose.1}
+        z: ${env.target_pose.2}
+    plan_executor:
+      _target_: prpl_dexmate.real_sim.plan_executors.vega_motion3d.VegaMotion3DPlanExecutor

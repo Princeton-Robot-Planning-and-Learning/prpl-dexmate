@@ -11,7 +11,13 @@ requires-python = ">=3.10"
 dependencies = [
    "dexcontrol",
    "dexmate-urdf",
+   "gymnasium",
+   "hydra-core",
+   "kindergarden[prpl-kinematics]>=0.2.1",
+   "numpy",
    "opencv-python",
+   "prpl_utils>=0.0.7",
+   "relational_structs>=0.0.1",
 ]
 
 [project.optional-dependencies]
@@ -58,5 +64,8 @@ module = [
     "cv2.*",
     "dexcontrol.*",
     "dexmate_urdf.*",
+    "kinder.*",
+    "prpl_utils.*",
+    "relational_structs.*",
 ]
 ignore_missing_imports = true
