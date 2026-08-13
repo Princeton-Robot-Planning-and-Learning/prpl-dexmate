@@ -10,14 +10,20 @@ from dataclasses import dataclass
 from pathlib import Path
 
 import hydra
+import numpy as np
 from hydra.core.hydra_config import HydraConfig
 from kinder_bilevel_planning.agent import AgentFailure
 from omegaconf import DictConfig
 from prpl_utils.real_sim import Runner
 
 from prpl_dexmate.agents import PlanExhausted
+from prpl_dexmate.motion import min_jerk_trajectory
 from prpl_dexmate.recording import RecordingRunner, VideoRecorder
+from prpl_dexmate.remote.protocol import TrajectoryDirective
 from prpl_dexmate.structs import VegaAction
+
+# Frame rate for the remote-mode init move directive.
+INIT_MOVE_HZ = 50.0
 
 
 @dataclass(frozen=True)
@@ -79,12 +85,25 @@ def run_pipeline(cfg: DictConfig, log_dir: Path | str | None = None) -> RolloutS
     # rollout can leave the robot connection open for the next session.
     try:
         # Move to the env's init pose before perceiving/planning: the real
-        # robot's parked pose is not a valid planning start. Fake-only for
-        # now — on hardware this must be a gentle move_and_wait, not one
-        # streamed setpoint at a distant target.
+        # robot's parked pose is not a valid planning start. In fake mode
+        # one snapped setpoint suffices; in remote mode the init move is a
+        # directive like any other, a min-jerk trajectory from the current
+        # pose over env.init_move_seconds. The streaming real mode still
+        # needs a gentle move_and_wait; not yet implemented.
         init_conf = cfg.env.get("init_right_arm_conf")
         if init_conf is not None and cfg.mode == "fake":
             real_env.step(VegaAction(right_arm_goal=list(init_conf)))
+        elif init_conf is not None and cfg.mode == "remote":
+            obs, _ = real_env.reset()
+            trajectory = min_jerk_trajectory(
+                np.array(obs.right_arm_conf),
+                np.array(list(init_conf)),
+                duration=float(cfg.env.get("init_move_seconds", 5.0)),
+                hz=INIT_MOVE_HZ,
+            )
+            real_env.step(
+                TrajectoryDirective.from_array("right_arm", trajectory, hz=INIT_MOVE_HZ)
+            )
         runner.reset(seed=cfg.seed)
         total_reward = 0.0
         steps = 0

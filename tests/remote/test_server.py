@@ -95,6 +95,12 @@ def test_watchdog_stops_on_silence(client: SkillClient) -> None:
     assert "watchdog" in result.message
 
 
+def test_observe_returns_joint_state(client: SkillClient) -> None:
+    """The observe op reports the fake interface's home configuration."""
+    observation = client.get_observation()
+    assert np.allclose(observation.head_conf, HOME_HEAD_CONF)
+
+
 def test_policy_rollout_not_implemented(client: SkillClient) -> None:
     """Policy rollout directives are rejected for now."""
     with pytest.raises(SkillServerError, match="not implemented"):

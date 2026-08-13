@@ -127,6 +127,9 @@ class SkillServer:
             return self._handle_start(request)
         if op == "status":
             return self._handle_status(request)
+        if op == "observe":
+            observation = self._interface.get_observation()
+            return {"ok": True, "observation": encode_message(observation)}
         if op == "stop":
             self._request_stop("stop requested")
             return {"ok": True}

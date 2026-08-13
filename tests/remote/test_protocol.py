@@ -12,7 +12,7 @@ from prpl_dexmate.remote.protocol import (
     deserialize_message,
     serialize_message,
 )
-from prpl_dexmate.structs import NUM_ARM_JOINTS, NUM_HEAD_JOINTS
+from prpl_dexmate.structs import NUM_ARM_JOINTS, NUM_HEAD_JOINTS, VegaObservation
 
 
 def test_trajectory_directive_round_trip() -> None:
@@ -61,6 +61,16 @@ def test_directive_result_round_trip() -> None:
             status=status, message="context", max_tracking_error=0.01, duration=2.5
         )
         assert deserialize_message(serialize_message(result)) == result
+
+
+def test_observation_round_trip() -> None:
+    """A VegaObservation survives JSON serialization."""
+    observation = VegaObservation(
+        right_arm_conf=[0.1] * NUM_ARM_JOINTS,
+        left_arm_conf=[-0.1] * NUM_ARM_JOINTS,
+        head_conf=[0.0] * NUM_HEAD_JOINTS,
+    )
+    assert deserialize_message(serialize_message(observation)) == observation
 
 
 def test_directive_status_terminal() -> None:

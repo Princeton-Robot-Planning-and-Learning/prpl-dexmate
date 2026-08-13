@@ -14,7 +14,9 @@ from numpy.typing import NDArray
 from prpl_utils.real_sim import PlanExecutor
 from relational_structs import ObjectCentricState
 
+from prpl_dexmate.motion import waypoint_trajectory
 from prpl_dexmate.real_sim.perceivers.vega_motion3d import ROBOT_OBJECT
+from prpl_dexmate.remote.protocol import TrajectoryDirective
 from prpl_dexmate.structs import NUM_ARM_JOINTS, VegaAction
 
 
@@ -70,3 +72,50 @@ class VegaMotion3DPlanExecutor(
             self._cursor >= len(self._waypoints) - 1
             and np.max(np.abs(self._waypoints[-1] - current)) < self._tolerance
         )
+
+
+class RemoteVegaMotion3DPlanExecutor(
+    PlanExecutor[NDArray[np.floating], TrajectoryDirective, ObjectCentricState]
+):
+    """Send a planned right-arm trajectory as one directive per skill.
+
+    The remote counterpart of VegaMotion3DPlanExecutor: rather than
+    emitting one waypoint per policy tick, the whole plan is
+    time-parameterized into a dense min-jerk trajectory (starting at the
+    perceived current joints and pausing momentarily at each planner
+    waypoint) and returned as a single TrajectoryDirective. The executor
+    is done after that one step; closed-loop tracking happens on the
+    robot, not across the network.
+    """
+
+    def __init__(self, segment_duration: float = 1.0, hz: float = 50.0) -> None:
+        self._segment_duration = segment_duration
+        self._hz = hz
+        self._waypoints: list[NDArray[np.float64]] = []
+        self._sim_actions: list[NDArray[np.floating]] = []
+        self._issued = False
+
+    def set_trajectory(
+        self,
+        trajectory: list[tuple[ObjectCentricState, NDArray[np.floating]]],
+    ) -> None:
+        self._waypoints = [
+            _state_joints(state) + np.asarray(action, dtype=float)
+            for state, action in trajectory
+        ]
+        self._sim_actions = [action for _, action in trajectory]
+        self._issued = False
+
+    def step(
+        self, sim_state: ObjectCentricState
+    ) -> tuple[TrajectoryDirective, NDArray[np.floating]]:
+        current = _state_joints(sim_state)
+        dense = waypoint_trajectory(
+            [current] + self._waypoints, self._segment_duration, self._hz
+        )
+        directive = TrajectoryDirective.from_array("right_arm", dense, hz=self._hz)
+        self._issued = True
+        return directive, self._sim_actions[-1]
+
+    def done(self, sim_state: ObjectCentricState) -> bool:
+        return self._issued or not self._waypoints
