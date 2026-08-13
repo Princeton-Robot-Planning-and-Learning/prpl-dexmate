@@ -95,6 +95,22 @@ def test_watchdog_stops_on_silence(client: SkillClient) -> None:
     assert "watchdog" in result.message
 
 
+def test_limit_violating_directives_rejected(client: SkillClient) -> None:
+    """Directives breaching URDF position or velocity limits never start."""
+    # Head joint 3's URDF upper limit is 1.483 rad.
+    over_limit = [[0.0, 0.0, 2.0]]
+    with pytest.raises(SkillServerError, match="violates limits"):
+        client.start_directive(
+            TrajectoryDirective(component="head", trajectory=over_limit, hz=10.0)
+        )
+    # 0.5 rad in one frame at 20 Hz = 10 rad/s, over the 3.2 rad/s limit.
+    too_fast = [list(HOME_HEAD_CONF), [0.5, 0.0, 0.0]]
+    with pytest.raises(SkillServerError, match="rad/s"):
+        client.start_directive(
+            TrajectoryDirective(component="head", trajectory=too_fast, hz=20.0)
+        )
+
+
 def test_observe_returns_joint_state(client: SkillClient) -> None:
     """The observe op reports the fake interface's home configuration."""
     observation = client.get_observation()
