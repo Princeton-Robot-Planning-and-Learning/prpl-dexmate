@@ -11,9 +11,11 @@ target_pose: [0.5, -0.4, 0.8]
 # The right-arm pose rollouts start from (the kinder env's home). The
 # real robot's parked fold is not a valid motion-planning start — the
 # collision model rejects it — so fake mode moves here before planning.
-# Real mode will need the same via a gentle move_and_wait before the
-# rollout; not yet implemented.
+# Remote mode sends a min-jerk trajectory directive over
+# init_move_seconds. Real (streaming) mode will need the same via a
+# gentle move_and_wait before the rollout; not yet implemented.
 init_right_arm_conf: [-1.043, -1.278, -0.793, -1.778, -0.148, -0.396, 0.417]
+init_move_seconds: 5.0
 
 pipelines:
   fake:
@@ -41,6 +43,29 @@ pipelines:
       _target_: prpl_dexmate.real_sim.perceivers.passthrough.PassThroughPerceiver
     plan_executor:
       _target_: prpl_dexmate.real_sim.plan_executors.passthrough.PassThroughPlanExecutor
+  # One directive per skill invocation crosses the network; the skill
+  # server must be running on the robot (python -m
+  # prpl_dexmate.remote.server), or anywhere with --fake for a benchless
+  # end-to-end demo. Override the host from the CLI, e.g.
+  #   python scripts/run_pipeline.py env=vega_motion3d mode=remote \
+  #     env.pipelines.remote.real_env.host=192.168.0.169
+  remote:
+    real_env:
+      _target_: prpl_dexmate.remote_env.RemoteVegaEnv
+      host: localhost
+      port: 8790
+      poll_period: 0.2
+    perceiver:
+      _target_: prpl_dexmate.real_sim.perceivers.vega_motion3d.VegaMotion3DPerceiver
+      target_source:
+        _target_: prpl_dexmate.real_sim.perceivers.target_source.ConstantTargetSource
+        x: ${env.target_pose.0}
+        y: ${env.target_pose.1}
+        z: ${env.target_pose.2}
+    plan_executor:
+      _target_: prpl_dexmate.real_sim.plan_executors.vega_motion3d.RemoteVegaMotion3DPlanExecutor
+      segment_duration: 1.0
+      hz: 50.0
   real:
     real_env:
       _target_: prpl_dexmate.real_env.RealVegaEnv

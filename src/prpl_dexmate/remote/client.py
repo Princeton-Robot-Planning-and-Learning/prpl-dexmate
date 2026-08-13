@@ -20,6 +20,7 @@ from prpl_dexmate.remote.protocol import (
     decode_message,
     encode_message,
 )
+from prpl_dexmate.structs import VegaObservation
 
 
 class ProtocolMismatchError(ConnectionError):
@@ -68,6 +69,13 @@ class SkillClient:
         result = decode_message(response["result"])
         assert isinstance(result, DirectiveResult)
         return result
+
+    def get_observation(self) -> VegaObservation:
+        """Fetch the robot's current joint observation."""
+        response = self._request({"op": "observe"})
+        observation = decode_message(response["observation"])
+        assert isinstance(observation, VegaObservation)
+        return observation
 
     def stop(self) -> None:
         """Stop any running directive; the robot holds position."""

@@ -5,18 +5,25 @@ point builds them via @hydra.main.
 """
 
 from pathlib import Path
+from typing import Iterator
 
+import pytest
 from hydra import compose, initialize
 from omegaconf import DictConfig
 
+from prpl_dexmate.interfaces.interface import FakeInterface
 from prpl_dexmate.pipeline import run_pipeline
+from prpl_dexmate.remote.server import SkillServer
 
 
-def _compose(mode: str, agent: str = "bilevel_planning") -> DictConfig:
+def _compose(
+    mode: str, agent: str = "bilevel_planning", extra_overrides: list[str] | None = None
+) -> DictConfig:
     with initialize(version_base=None, config_path="../conf"):
         return compose(
             config_name="config",
-            overrides=[f"mode={mode}", "env=vega_motion3d", f"agent={agent}"],
+            overrides=[f"mode={mode}", "env=vega_motion3d", f"agent={agent}"]
+            + (extra_overrides or []),
         )
 
 
@@ -54,6 +61,37 @@ def test_fake_mode_records_no_video(tmp_path: Path) -> None:
     cfg.record.video = True
     summary = run_pipeline(cfg, log_dir=tmp_path)
     assert summary.video_path is None
+
+
+@pytest.fixture(name="skill_server")
+def _skill_server_fixture() -> Iterator[SkillServer]:
+    interface = FakeInterface()
+    server = SkillServer(interface, host="127.0.0.1", port=0)
+    server.start()
+    yield server
+    server.close()
+    interface.close()
+
+
+def test_remote_mode_rollout_completes(skill_server: SkillServer) -> None:
+    """A remote-mode rollout runs one directive per skill against the server (the open-
+    loop joint-plan end-to-end demo, minus hardware)."""
+    cfg = _compose(
+        "remote",
+        agent="scripted",
+        extra_overrides=[
+            "env.pipelines.remote.real_env.host=127.0.0.1",
+            f"env.pipelines.remote.real_env.port={skill_server.port}",
+            "env.pipelines.remote.real_env.poll_period=0.05",
+            "env.pipelines.remote.plan_executor.segment_duration=0.05",
+            "env.pipelines.remote.plan_executor.hz=20.0",
+            "env.init_move_seconds=0.1",
+        ],
+    )
+    summary = run_pipeline(cfg)
+    assert summary.mode == "remote"
+    assert summary.steps >= 1
+    assert summary.finish_reason.startswith("plan_exhausted")
 
 
 def test_fake_mode_with_bilevel_planning_executes_plan() -> None:

@@ -22,7 +22,7 @@ from typing import Any, Union
 import numpy as np
 from numpy.typing import NDArray
 
-from prpl_dexmate.structs import NUM_ARM_JOINTS, NUM_HEAD_JOINTS
+from prpl_dexmate.structs import NUM_ARM_JOINTS, NUM_HEAD_JOINTS, VegaObservation
 
 # Joint counts per commandable component, keyed by the component names
 # used in directives.
@@ -123,12 +123,15 @@ class DirectiveResult:
     duration: float | None = None
 
 
-Message = Union[TrajectoryDirective, PolicyRolloutDirective, DirectiveResult]
+Message = Union[
+    TrajectoryDirective, PolicyRolloutDirective, DirectiveResult, VegaObservation
+]
 
 _MESSAGE_TYPES: dict[str, type] = {
     "trajectory_directive": TrajectoryDirective,
     "policy_rollout_directive": PolicyRolloutDirective,
     "directive_result": DirectiveResult,
+    "vega_observation": VegaObservation,
 }
 _TYPE_NAMES = {cls: name for name, cls in _MESSAGE_TYPES.items()}
 
