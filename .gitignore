@@ -165,3 +165,7 @@ logs/
 
 # The Environments section's env/ pattern must not swallow Hydra's conf/env/.
 !conf/env/
+
+# Camera example output (examples/save_head_camera_images.py writes here);
+# must be ignored or untracked images trip the launcher's clean-tree check.
+head_camera_output/
