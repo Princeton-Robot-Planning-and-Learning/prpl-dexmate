@@ -55,6 +55,12 @@ pipelines:
       host: localhost
       port: 8790
       poll_period: 0.2
+      # Pause-and-confirm gate: every directive (including the init move)
+      # prints its trajectory summary and waits for stdin approval before
+      # anything is sent to the robot. Rejection ends the rollout with no
+      # motion. Disable for unattended/benchless runs with
+      #   env.pipelines.remote.real_env.confirm=false
+      confirm: true
     perceiver:
       _target_: prpl_dexmate.real_sim.perceivers.vega_motion3d.VegaMotion3DPerceiver
       target_source:
