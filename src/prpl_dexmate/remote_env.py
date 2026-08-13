@@ -17,6 +17,7 @@ raises :class:`DirectiveRejected` before anything is sent, so no motion
 is commanded.
 """
 
+import sys
 import tempfile
 from pathlib import Path
 from typing import Any, Callable, SupportsFloat
@@ -63,6 +64,23 @@ def describe_directive(directive: TrajectoryDirective) -> str:
     return "\n".join(lines)
 
 
+def _flush_stdin() -> None:
+    """Discard any keystrokes buffered before the gate prompt.
+
+    Planning and preview rendering can take minutes; anything typed during
+    that wait (a reflexive Enter, or worse a stray "y") would otherwise be
+    consumed by the prompt and could silently answer the safety gate. No-op
+    when stdin is not a terminal (tests, redirected input).
+    """
+    try:
+        import termios  # pylint: disable=import-outside-toplevel
+
+        if sys.stdin.isatty():
+            termios.tcflush(sys.stdin, termios.TCIFLUSH)
+    except (ImportError, OSError, ValueError):
+        pass
+
+
 def _confirm_or_reject(
     directive: TrajectoryDirective,
     prompt_fn: PromptFn | None,
@@ -71,6 +89,7 @@ def _confirm_or_reject(
     # `input` is resolved here, at call time, so tests can monkeypatch the
     # builtin even though Hydra cannot inject a prompt_fn through config.
     if prompt_fn is None:
+        _flush_stdin()
         prompt_fn = input
     preview_line = (
         f"Preview video: {preview_path}\n" if preview_path is not None else ""
