@@ -11,11 +11,13 @@ from pathlib import Path
 
 import hydra
 from hydra.core.hydra_config import HydraConfig
+from kinder_bilevel_planning.agent import AgentFailure
 from omegaconf import DictConfig
 from prpl_utils.real_sim import Runner
 
 from prpl_dexmate.agents import PlanExhausted
 from prpl_dexmate.recording import RecordingRunner, VideoRecorder
+from prpl_dexmate.structs import VegaAction
 
 
 @dataclass(frozen=True)
@@ -76,6 +78,13 @@ def run_pipeline(cfg: DictConfig, log_dir: Path | str | None = None) -> RolloutS
     # try/finally so `real_env.close()` always runs — without it a real-mode
     # rollout can leave the robot connection open for the next session.
     try:
+        # Move to the env's init pose before perceiving/planning: the real
+        # robot's parked pose is not a valid planning start. Fake-only for
+        # now — on hardware this must be a gentle move_and_wait, not one
+        # streamed setpoint at a distant target.
+        init_conf = cfg.env.get("init_right_arm_conf")
+        if init_conf is not None and cfg.mode == "fake":
+            real_env.step(VegaAction(right_arm_goal=list(init_conf)))
         runner.reset(seed=cfg.seed)
         total_reward = 0.0
         steps = 0
@@ -83,7 +92,9 @@ def run_pipeline(cfg: DictConfig, log_dir: Path | str | None = None) -> RolloutS
         for _ in range(cfg.max_eval_steps):
             try:
                 _, reward, terminated, truncated, _ = runner.step()
-            except PlanExhausted as e:
+            except (AgentFailure, PlanExhausted) as e:
+                # A finite plan running out is the natural rollout end for
+                # envs whose real mode has no goal detection.
                 finish_reason = f"plan_exhausted: {e}"
                 break
             steps += 1

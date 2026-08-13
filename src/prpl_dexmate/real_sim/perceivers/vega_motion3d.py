@@ -12,6 +12,7 @@ from kinder.envs.kinematic3d_v2.object_types import (
     Kinematic3Dv2EnvTypeFeatures,
     Kinematic3Dv2PointType,
 )
+from kinder.envs.kinematic3d_v2.vega_motion3d import VegaMotion3DObjectCentricState
 from prpl_utils.real_sim import Perceiver
 from relational_structs import Object, ObjectCentricState
 from relational_structs.utils import create_state_from_dict
@@ -47,4 +48,8 @@ class VegaMotion3DPerceiver(Perceiver[VegaObservation, ObjectCentricState]):
             },
             TARGET_OBJECT: {"x": x, "y": y, "z": z},
         }
-        return create_state_from_dict(state_dict, Kinematic3Dv2EnvTypeFeatures)
+        base = create_state_from_dict(state_dict, Kinematic3Dv2EnvTypeFeatures)
+        # The kinder env models type-check for the env-specific state
+        # subclass (it carries convenience accessors), so rebuild the
+        # plain state as that class.
+        return VegaMotion3DObjectCentricState(base.data, base.type_features)

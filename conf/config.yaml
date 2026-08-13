@@ -9,6 +9,7 @@
 defaults:
   - _self_
   - env: ???
+  - agent: bilevel_planning
 
 hydra:
   run:
@@ -27,11 +28,5 @@ record:
   video: false
   fps: 10
 
-# The planning agent. ScriptedJointDeltaAgent is the placeholder until a
-# VegaMotion3D env model lands in kinder-baselines; swapping in a bilevel
-# planning agent is a config change here, not a code change.
-agent:
-  _target_: prpl_dexmate.agents.ScriptedJointDeltaAgent
-  joint_index: 6
-  delta: 0.02
-  num_steps: 10
+# The planning agent is a Hydra group: `agent=bilevel_planning` (default)
+# or `agent=scripted` (dependency-light, deterministic). See conf/agent/.

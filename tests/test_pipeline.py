@@ -12,16 +12,17 @@ from omegaconf import DictConfig
 from prpl_dexmate.pipeline import run_pipeline
 
 
-def _compose(mode: str) -> DictConfig:
+def _compose(mode: str, agent: str = "bilevel_planning") -> DictConfig:
     with initialize(version_base=None, config_path="../conf"):
         return compose(
-            config_name="config", overrides=[f"mode={mode}", "env=vega_motion3d"]
+            config_name="config",
+            overrides=[f"mode={mode}", "env=vega_motion3d", f"agent={agent}"],
         )
 
 
 def test_fake_mode_rollout_completes() -> None:
     """A fake-mode rollout executes the scripted plan and finishes."""
-    summary = run_pipeline(_compose("fake"))
+    summary = run_pipeline(_compose("fake", agent="scripted"))
     assert summary.mode == "fake"
     assert summary.env_name == "vega_motion3d"
     assert summary.steps >= 1
@@ -30,7 +31,7 @@ def test_fake_mode_rollout_completes() -> None:
 
 def test_sim_mode_rollout_completes() -> None:
     """A sim-mode rollout drives the kinder env end-to-end."""
-    summary = run_pipeline(_compose("sim"))
+    summary = run_pipeline(_compose("sim", agent="scripted"))
     assert summary.mode == "sim"
     assert summary.steps >= 1
     assert summary.finish_reason.startswith(("plan_exhausted", "terminated"))
@@ -39,7 +40,7 @@ def test_sim_mode_rollout_completes() -> None:
 
 def test_sim_mode_rollout_records_video(tmp_path: Path) -> None:
     """With record.video=true and a log dir, sim produces video.mp4."""
-    cfg = _compose("sim")
+    cfg = _compose("sim", agent="scripted")
     cfg.record.video = True
     summary = run_pipeline(cfg, log_dir=tmp_path)
     assert summary.video_path is not None
@@ -49,7 +50,20 @@ def test_sim_mode_rollout_records_video(tmp_path: Path) -> None:
 
 def test_fake_mode_records_no_video(tmp_path: Path) -> None:
     """The fake env renders nothing, so no video is produced."""
-    cfg = _compose("fake")
+    cfg = _compose("fake", agent="scripted")
     cfg.record.video = True
     summary = run_pipeline(cfg, log_dir=tmp_path)
     assert summary.video_path is None
+
+
+def test_fake_mode_with_bilevel_planning_executes_plan() -> None:
+    """The bilevel planner plans from the init pose and the executor tracks it."""
+    summary = run_pipeline(_compose("fake"))
+    assert summary.steps >= 1
+    assert summary.finish_reason.startswith("plan_exhausted")
+
+
+def test_sim_mode_with_bilevel_planning_reaches_goal() -> None:
+    """In sim the planner reaches the target and the env terminates."""
+    summary = run_pipeline(_compose("sim"))
+    assert summary.finish_reason == "terminated"
