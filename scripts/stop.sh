@@ -20,6 +20,23 @@ HOST="${PRPL_VEGA_HOST:-vega}"
 SESSION="${PRPL_TMUX_SESSION:-prpl-dexmate}"
 SERVER_PATTERN="prpl_dexmate.remote.server"
 
+# This is an orchestrator-side script: it reaches the robot over the SSH
+# alias and kills the local tmux session. Refuse to run on the robot
+# itself (the alias and the session both live on the orchestrator).
+if [ -f ~/.prpl_robot_env ]; then
+    echo "ERROR: this looks like the robot (~/.prpl_robot_env exists)." >&2
+    echo "Run scripts/stop.sh on the orchestrator machine instead." >&2
+    exit 64
+fi
+
+# Refuse to run from inside the session being killed: the final
+# kill-session would take this script's own shell down mid-run.
+if [ -n "${TMUX:-}" ] && [ "$(tmux display-message -p '#S' 2>/dev/null)" = "$SESSION" ]; then
+    echo "ERROR: you are inside the '$SESSION' tmux session this script kills." >&2
+    echo "Detach first (Ctrl-b d), then run scripts/stop.sh from that terminal." >&2
+    exit 64
+fi
+
 failed=0
 
 err() {
