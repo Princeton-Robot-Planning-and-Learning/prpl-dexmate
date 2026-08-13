@@ -88,6 +88,10 @@ python scripts/run_pipeline.py env=vega_motion3d mode=remote \
 # the joints hold position unpowered in other poses is unverified —
 # fold before every power-off.)
 python scripts/park_arms.py --to fold --host <robot>
+
+# Then tear down the server and the tmux session (verifies nothing
+# survived; exits non-zero otherwise).
+scripts/stop.sh
 ```
 
 `park_arms.py` observes the arms' actual positions, routes each arm
