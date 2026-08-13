@@ -17,12 +17,15 @@ raises :class:`DirectiveRejected` before anything is sent, so no motion
 is commanded.
 """
 
+import tempfile
+from pathlib import Path
 from typing import Any, Callable, SupportsFloat
 
 import gymnasium
 import numpy as np
 from gymnasium.core import RenderFrame
 
+from prpl_dexmate.preview import DirectivePreviewer
 from prpl_dexmate.remote.client import SkillClient
 from prpl_dexmate.remote.protocol import DirectiveStatus, TrajectoryDirective
 from prpl_dexmate.remote.server import DEFAULT_PORT
@@ -61,14 +64,22 @@ def describe_directive(directive: TrajectoryDirective) -> str:
 
 
 def _confirm_or_reject(
-    directive: TrajectoryDirective, prompt_fn: PromptFn | None
+    directive: TrajectoryDirective,
+    prompt_fn: PromptFn | None,
+    preview_path: Path | None,
 ) -> None:
     # `input` is resolved here, at call time, so tests can monkeypatch the
     # builtin even though Hydra cannot inject a prompt_fn through config.
     if prompt_fn is None:
         prompt_fn = input
+    preview_line = (
+        f"Preview video: {preview_path}\n" if preview_path is not None else ""
+    )
     answer = (
-        prompt_fn(f"\n{describe_directive(directive)}\nExecute on the robot? [y/N]: ")
+        prompt_fn(
+            f"\n{describe_directive(directive)}\n{preview_line}"
+            "Execute on the robot? [y/N]: "
+        )
         .strip()
         .lower()
     )
@@ -93,11 +104,16 @@ class RemoteVegaEnv(gymnasium.Env[VegaObservation, TrajectoryDirective]):
         poll_period: float = 0.2,
         confirm: bool = False,
         prompt_fn: PromptFn | None = None,
+        previewer: DirectivePreviewer | None = None,
     ) -> None:
         self._client = SkillClient(host, port)
         self._poll_period = poll_period
         self._confirm = confirm
         self._prompt_fn = prompt_fn
+        self._previewer = previewer
+        # Where preview mp4s land; the pipeline points this at the rollout
+        # log dir when one exists.
+        self.preview_dir = Path(tempfile.gettempdir())
 
     def reset(
         self,
@@ -114,7 +130,12 @@ class RemoteVegaEnv(gymnasium.Env[VegaObservation, TrajectoryDirective]):
         # The gate runs strictly before the client sends anything, so a
         # rejection guarantees no motion was commanded.
         if self._confirm:
-            _confirm_or_reject(action, self._prompt_fn)
+            preview_path = None
+            if self._previewer is not None:
+                preview_path = self._previewer.render_directive(
+                    action, self.preview_dir
+                )
+            _confirm_or_reject(action, self._prompt_fn, preview_path)
         result = self._client.execute_directive(action, poll_period=self._poll_period)
         if result.status is not DirectiveStatus.SUCCEEDED:
             print(
@@ -129,3 +150,5 @@ class RemoteVegaEnv(gymnasium.Env[VegaObservation, TrajectoryDirective]):
     def close(self) -> None:
         """Disconnect from the skill server (which keeps running)."""
         self._client.close()
+        if self._previewer is not None:
+            self._previewer.close()

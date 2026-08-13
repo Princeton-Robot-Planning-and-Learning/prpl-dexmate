@@ -70,5 +70,16 @@ class KinderSimEnv(
     def render(self) -> RenderFrame | list[RenderFrame] | None:
         return self._env.render()
 
+    def set_state(self, state: ObjectCentricState) -> None:
+        """Teleport the inner kinder env to ``state``.
+
+        Requires the env to be constructed with ``allow_state_access=True``.
+        Used by the directive previewer to render arbitrary states on a
+        shadow sim (same pattern as prpl-tidybot's recording layer).
+        """
+        self._env.unwrapped._object_centric_env.set_state(  # type: ignore[attr-defined]  # pylint: disable=protected-access
+            state
+        )
+
     def close(self) -> None:
         self._env.close()
