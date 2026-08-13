@@ -12,10 +12,11 @@ from omegaconf import DictConfig
 from prpl_dexmate.pipeline import run_pipeline
 
 
-def _compose(mode: str) -> DictConfig:
+def _compose(mode: str, agent: str = "scripted") -> DictConfig:
     with initialize(version_base=None, config_path="../conf"):
         return compose(
-            config_name="config", overrides=[f"mode={mode}", "env=vega_motion3d"]
+            config_name="config",
+            overrides=[f"mode={mode}", "env=vega_motion3d", f"agent={agent}"],
         )
 
 
@@ -53,3 +54,16 @@ def test_fake_mode_records_no_video(tmp_path: Path) -> None:
     cfg.record.video = True
     summary = run_pipeline(cfg, log_dir=tmp_path)
     assert summary.video_path is None
+
+
+def test_fake_mode_with_bilevel_planning_executes_plan() -> None:
+    """The bilevel planner plans from the init pose and the executor tracks it."""
+    summary = run_pipeline(_compose("fake", agent="bilevel_planning"))
+    assert summary.steps >= 1
+    assert summary.finish_reason.startswith("plan_exhausted")
+
+
+def test_sim_mode_with_bilevel_planning_reaches_goal() -> None:
+    """In sim the planner reaches the target and the env terminates."""
+    summary = run_pipeline(_compose("sim", agent="bilevel_planning"))
+    assert summary.finish_reason == "terminated"

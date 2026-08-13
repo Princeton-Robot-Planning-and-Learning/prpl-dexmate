@@ -1,0 +1,6 @@
+# Deterministic placeholder agent: wiggles one right-arm joint out and
+# back. Exercises the full pipeline without any planning dependencies.
+_target_: prpl_dexmate.agents.ScriptedJointDeltaAgent
+joint_index: 6
+delta: 0.02
+num_steps: 10

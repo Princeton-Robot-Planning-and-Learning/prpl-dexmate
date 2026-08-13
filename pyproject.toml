@@ -13,6 +13,8 @@ dependencies = [
    "dexmate-urdf",
    "gymnasium",
    "hydra-core",
+   "kinder_bilevel_planning @ git+https://github.com/Princeton-Robot-Planning-and-Learning/kinder-baselines.git@c40620f#subdirectory=kinder-bilevel-planning",
+   "kinder_models @ git+https://github.com/Princeton-Robot-Planning-and-Learning/kinder-baselines.git@c40620f#subdirectory=kinder-models",
    "kindergarden[prpl-kinematics]>=0.2.1",
    "numpy",
    "opencv-python",
@@ -61,10 +63,13 @@ exclude = ["venv/*", ".venv/*"]
 
 [[tool.mypy.overrides]]
 module = [
+    "bilevel_planning.*",
     "cv2.*",
     "dexcontrol.*",
     "dexmate_urdf.*",
     "kinder.*",
+    "kinder_bilevel_planning.*",
+    "kinder_models.*",
     "prpl_utils.*",
     "relational_structs.*",
 ]
