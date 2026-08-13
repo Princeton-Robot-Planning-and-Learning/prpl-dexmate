@@ -1,0 +1,79 @@
+"""Park both arms at the model home or the shipping fold, safely.
+
+Usage (with the skill server running on the robot):
+
+    python scripts/park_arms.py --to home --host 192.168.0.169   # session start
+    python scripts/park_arms.py --to fold --host 192.168.0.169   # before power-off
+
+Observes the arms' actual positions, plans single-arm min-jerk moves
+routed through home with every straight-line segment collision-checked
+in sim first, and asks for confirmation before each motion. See
+``prpl_dexmate.park`` for the operational rules this encodes.
+"""
+
+import argparse
+
+import numpy as np
+
+from prpl_dexmate.motion import min_jerk_trajectory
+from prpl_dexmate.park import ParkingBlocked, ParkingPlanner
+from prpl_dexmate.remote.client import SkillClient
+from prpl_dexmate.remote.protocol import TrajectoryDirective
+from prpl_dexmate.remote.server import DEFAULT_PORT
+
+MOVE_HZ = 20.0
+
+
+def _main() -> None:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--to", choices=("home", "fold"), required=True)
+    parser.add_argument("--host", default="192.168.0.169")
+    parser.add_argument("--port", type=int, default=DEFAULT_PORT)
+    args = parser.parse_args()
+
+    client = SkillClient(args.host, args.port)
+    observation = client.get_observation()
+    current_right = np.array(observation.right_arm_conf)
+    current_left = np.array(observation.left_arm_conf)
+    print("right arm at:", np.round(current_right, 3).tolist())
+    print("left arm at: ", np.round(current_left, 3).tolist())
+
+    print("Planning and collision-checking parking moves...")
+    planner = ParkingPlanner()
+    try:
+        moves = planner.plan_parking_moves(current_right, current_left, args.to)
+    except ParkingBlocked as e:
+        print(f"REFUSING TO MOVE: {e}")
+        client.close()
+        planner.close()
+        raise SystemExit(1) from e
+    if not moves:
+        print(f"Both arms are already at {args.to}; nothing to do.")
+    for move in moves:
+        answer = input(
+            f"\nNext: {move.component} -> {np.round(move.end, 3).tolist()} "
+            f"over {move.seconds:.0f}s (max delta "
+            f"{np.max(np.abs(move.end - move.start)):.2f} rad). "
+            "Hand on e-stop. Execute? [y/N]: "
+        )
+        if answer.strip().lower() not in ("y", "yes"):
+            print("Stopped by operator; arms left as they are.")
+            break
+        trajectory = min_jerk_trajectory(
+            move.start, move.end, duration=move.seconds, hz=MOVE_HZ
+        )
+        result = client.execute_directive(
+            TrajectoryDirective.from_array(move.component, trajectory, hz=MOVE_HZ)
+        )
+        print(result)
+    observation = client.get_observation()
+    print("\nfinal right:", np.round(observation.right_arm_conf, 3).tolist())
+    print("final left: ", np.round(observation.left_arm_conf, 3).tolist())
+    if args.to == "fold":
+        print("Folded arms rest on end-stops: safe to power off.")
+    client.close()
+    planner.close()
+
+
+if __name__ == "__main__":
+    _main()

@@ -61,6 +61,31 @@ startup rather than subtly at runtime.
 During development, prefer wired ethernet to the robot; the architecture
 tolerates WiFi, but debugging is much easier wired.
 
+### Session workflow
+
+With the skill server running on the robot:
+
+```bash
+# Session start: unfold from the shipping fold to the model home
+# (the resting pose while powered, and the pipeline's planning start).
+python scripts/park_arms.py --to home --host <robot>
+
+# Rollouts. Every directive shows a summary and a shadow-sim preview
+# video at a confirm gate before anything moves.
+python scripts/run_pipeline.py env=vega_motion3d mode=remote \
+    env.pipelines.remote.real_env.host=<robot>
+
+# Session end, before power-off: fold back. The folded arms rest on
+# mechanical end-stops, so nothing sags when motor power cuts. (Whether
+# the joints hold position unpowered in other poses is unverified —
+# fold before every power-off.)
+python scripts/park_arms.py --to fold --host <robot>
+```
+
+`park_arms.py` observes the arms' actual positions, routes each arm
+through home one at a time, collision-checks every straight-line segment
+in sim before moving, and asks for confirmation per motion.
+
 ## Development
 
 Run all CI checks locally with:
