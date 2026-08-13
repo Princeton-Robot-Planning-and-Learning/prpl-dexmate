@@ -1,7 +1,7 @@
 """Helpers for commanding robot motion through dexcontrol."""
 
 import time
-from typing import Any
+from typing import Any, Callable
 
 import numpy as np
 
@@ -32,6 +32,7 @@ def follow_joint_trajectory(
     hz: float = 100.0,
     max_start_error: float = 0.05,
     max_tracking_error: float = 0.5,
+    should_stop: Callable[[], bool] | None = None,
 ) -> float:
     """Stream a joint-space trajectory to a component at a fixed rate.
 
@@ -41,6 +42,12 @@ def follow_joint_trajectory(
     max_start_error so a distant first frame cannot cause a violent jump.
     Aborts by raising RuntimeError if the tracking error ever exceeds
     max_tracking_error. Returns the maximum tracking error observed.
+
+    If should_stop is given, it is checked once per frame; when it
+    returns True, streaming ceases and the function returns early. The
+    component then holds the last commanded position (position-control
+    semantics), which is the safe-stop behavior for a dropped or aborted
+    execution.
     """
     trajectory = np.asarray(trajectory, dtype=float)
     current = np.asarray(component.get_joint_pos())
@@ -54,6 +61,8 @@ def follow_joint_trajectory(
     start_time = time.monotonic()
     max_error = 0.0
     for i, frame in enumerate(trajectory):
+        if should_stop is not None and should_stop():
+            return max_error
         component.set_joint_pos(frame)
         error = np.max(np.abs(np.asarray(component.get_joint_pos()) - frame))
         max_error = max(max_error, error)
