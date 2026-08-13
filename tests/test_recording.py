@@ -7,6 +7,18 @@ import numpy as np
 from prpl_dexmate.recording import VideoRecorder
 
 
+def test_save_creates_missing_directories(tmp_path: Path) -> None:
+    """Saving into a nonexistent directory creates it instead of silently writing
+    nothing."""
+    recorder = VideoRecorder()
+    recorder.add_frame(np.zeros((32, 32, 3), dtype=np.uint8))
+    out = tmp_path / "nested" / "dirs" / "video.mp4"
+    saved = recorder.save(out, fps=10)
+    assert saved == out
+    assert out.exists()
+    assert out.stat().st_size > 0
+
+
 def test_video_recorder_writes_mp4(tmp_path: Path) -> None:
     """Frames are composed into a nonempty mp4 file."""
     recorder = VideoRecorder()

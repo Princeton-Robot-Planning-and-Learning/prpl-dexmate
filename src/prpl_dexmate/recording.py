@@ -36,10 +36,16 @@ class VideoRecorder:
         """Write the frames to ``path`` and return it; None if no frames."""
         if not self._frames:
             return None
+        path.parent.mkdir(parents=True, exist_ok=True)
         height, width = self._frames[0].shape[:2]
         writer = cv2.VideoWriter(
             str(path), cv2.VideoWriter.fourcc(*"mp4v"), fps, (width, height)
         )
+        # cv2.VideoWriter reports failure (e.g. an unwritable path) by
+        # never opening rather than by raising; without this check save
+        # would silently return a path to a file that was never written.
+        if not writer.isOpened():
+            raise RuntimeError(f"Could not open video writer for {path}")
         for frame in self._frames:
             writer.write(cv2.cvtColor(frame, cv2.COLOR_RGB2BGR))
         writer.release()
