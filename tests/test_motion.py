@@ -87,6 +87,21 @@ def test_follow_joint_trajectory_aborts_on_tracking_error() -> None:
         )
 
 
+def test_follow_joint_trajectory_stops_early() -> None:
+    """When should_stop fires, streaming ceases mid-trajectory."""
+    component = _FakeComponent()
+    trajectory = np.linspace(np.zeros(3), np.ones(3), 50)
+    frames_before_stop = 10
+    calls = iter(range(len(trajectory)))
+    follow_joint_trajectory(
+        component,
+        trajectory,
+        hz=1000.0,
+        should_stop=lambda: next(calls) >= frames_before_stop,
+    )
+    assert np.allclose(component.get_joint_pos(), trajectory[frames_before_stop - 1])
+
+
 def test_min_jerk_trajectory_endpoints_and_shape() -> None:
     """The trajectory starts at start, ends at end, and moves monotonically."""
     start = np.array([0.0, 1.0])
