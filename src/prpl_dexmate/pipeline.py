@@ -64,6 +64,10 @@ def run_pipeline(cfg: DictConfig, log_dir: Path | str | None = None) -> RolloutS
 
     record_cfg = cfg.get("record")
     resolved_log_dir = _resolve_log_dir(log_dir)
+    # Point the confirm gate's preview videos at the rollout log dir when
+    # one exists (RemoteVegaEnv defaults to the system temp dir otherwise).
+    if resolved_log_dir is not None and hasattr(real_env, "preview_dir"):
+        real_env.preview_dir = Path(resolved_log_dir)
     recorder: VideoRecorder | None = None
     runner_kwargs = {
         "real_env": real_env,

@@ -56,11 +56,25 @@ pipelines:
       port: 8790
       poll_period: 0.2
       # Pause-and-confirm gate: every directive (including the init move)
-      # prints its trajectory summary and waits for stdin approval before
-      # anything is sent to the robot. Rejection ends the rollout with no
-      # motion. Disable for unattended/benchless runs with
+      # prints its trajectory summary, renders a shadow-sim preview video,
+      # and waits for stdin approval before anything is sent to the robot.
+      # Rejection ends the rollout with no motion. Disable for
+      # unattended/benchless runs with
       #   env.pipelines.remote.real_env.confirm=false
       confirm: true
+      previewer:
+        _target_: prpl_dexmate.preview.DirectivePreviewer
+        shadow_env:
+          _target_: prpl_dexmate.sim_env.KinderSimEnv
+          env_id: ${env.env_id}
+          allow_state_access: true
+        perceiver:
+          _target_: prpl_dexmate.real_sim.perceivers.vega_motion3d.VegaMotion3DPerceiver
+          target_source:
+            _target_: prpl_dexmate.real_sim.perceivers.target_source.ConstantTargetSource
+            x: ${env.target_pose.0}
+            y: ${env.target_pose.1}
+            z: ${env.target_pose.2}
     perceiver:
       _target_: prpl_dexmate.real_sim.perceivers.vega_motion3d.VegaMotion3DPerceiver
       target_source:
