@@ -73,27 +73,62 @@ def _skill_server_fixture() -> Iterator[SkillServer]:
     interface.close()
 
 
+def _remote_overrides(skill_server: SkillServer, confirm: bool) -> list[str]:
+    return [
+        "env.pipelines.remote.real_env.host=127.0.0.1",
+        f"env.pipelines.remote.real_env.port={skill_server.port}",
+        "env.pipelines.remote.real_env.poll_period=0.05",
+        f"env.pipelines.remote.real_env.confirm={str(confirm).lower()}",
+        "env.pipelines.remote.plan_executor.segment_duration=0.05",
+        "env.pipelines.remote.plan_executor.hz=20.0",
+        # Must stay slow enough that the fold-to-init move (~1.3 rad on
+        # the biggest joint) passes the server's velocity-limit check.
+        "env.init_move_seconds=1.5",
+    ]
+
+
 def test_remote_mode_rollout_completes(skill_server: SkillServer) -> None:
     """A remote-mode rollout runs one directive per skill against the server (the open-
     loop joint-plan end-to-end demo, minus hardware)."""
     cfg = _compose(
         "remote",
         agent="scripted",
-        extra_overrides=[
-            "env.pipelines.remote.real_env.host=127.0.0.1",
-            f"env.pipelines.remote.real_env.port={skill_server.port}",
-            "env.pipelines.remote.real_env.poll_period=0.05",
-            "env.pipelines.remote.plan_executor.segment_duration=0.05",
-            "env.pipelines.remote.plan_executor.hz=20.0",
-            # Must stay slow enough that the fold-to-init move (~1.3 rad on
-            # the biggest joint) passes the server's velocity-limit check.
-            "env.init_move_seconds=1.5",
-        ],
+        extra_overrides=_remote_overrides(skill_server, confirm=False),
     )
     summary = run_pipeline(cfg)
     assert summary.mode == "remote"
     assert summary.steps >= 1
     assert summary.finish_reason.startswith("plan_exhausted")
+
+
+def test_remote_confirm_gate_approval_completes(
+    skill_server: SkillServer, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """With the gate on and every directive approved, the rollout completes."""
+    monkeypatch.setattr("builtins.input", lambda _: "y")
+    cfg = _compose(
+        "remote",
+        agent="scripted",
+        extra_overrides=_remote_overrides(skill_server, confirm=True),
+    )
+    summary = run_pipeline(cfg)
+    assert summary.steps >= 1
+    assert summary.finish_reason.startswith("plan_exhausted")
+
+
+def test_remote_confirm_gate_rejection_stops_cleanly(
+    skill_server: SkillServer, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Rejecting the first directive (the init move) ends with no steps."""
+    monkeypatch.setattr("builtins.input", lambda _: "n")
+    cfg = _compose(
+        "remote",
+        agent="scripted",
+        extra_overrides=_remote_overrides(skill_server, confirm=True),
+    )
+    summary = run_pipeline(cfg)
+    assert summary.steps == 0
+    assert summary.finish_reason.startswith("directive_rejected")
 
 
 def test_fake_mode_with_bilevel_planning_executes_plan() -> None:

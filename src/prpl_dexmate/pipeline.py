@@ -20,6 +20,7 @@ from prpl_dexmate.agents import PlanExhausted
 from prpl_dexmate.motion import min_jerk_trajectory
 from prpl_dexmate.recording import RecordingRunner, VideoRecorder
 from prpl_dexmate.remote.protocol import TrajectoryDirective
+from prpl_dexmate.remote_env import DirectiveRejected
 from prpl_dexmate.structs import VegaAction
 
 # Frame rate for the remote-mode init move directive.
@@ -101,9 +102,21 @@ def run_pipeline(cfg: DictConfig, log_dir: Path | str | None = None) -> RolloutS
                 duration=float(cfg.env.get("init_move_seconds", 5.0)),
                 hz=INIT_MOVE_HZ,
             )
-            real_env.step(
-                TrajectoryDirective.from_array("right_arm", trajectory, hz=INIT_MOVE_HZ)
-            )
+            try:
+                real_env.step(
+                    TrajectoryDirective.from_array(
+                        "right_arm", trajectory, hz=INIT_MOVE_HZ
+                    )
+                )
+            except DirectiveRejected as e:
+                return RolloutSummary(
+                    env_name=cfg.env.env_name,
+                    mode=cfg.mode,
+                    seed=cfg.seed,
+                    steps=0,
+                    finish_reason=f"directive_rejected: {e}",
+                    total_reward=0.0,
+                )
         runner.reset(seed=cfg.seed)
         total_reward = 0.0
         steps = 0
@@ -115,6 +128,11 @@ def run_pipeline(cfg: DictConfig, log_dir: Path | str | None = None) -> RolloutS
                 # A finite plan running out is the natural rollout end for
                 # envs whose real mode has no goal detection.
                 finish_reason = f"plan_exhausted: {e}"
+                break
+            except DirectiveRejected as e:
+                # The operator declined a directive at the confirm gate;
+                # nothing was sent to the robot. End the rollout cleanly.
+                finish_reason = f"directive_rejected: {e}"
                 break
             steps += 1
             total_reward += float(reward)
