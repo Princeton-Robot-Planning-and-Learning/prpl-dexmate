@@ -21,9 +21,14 @@ branch="${PRPL_BRANCH:-}"
 # `uv`'s installer drops the binary in ~/.local/bin/, which is typically only
 # added to PATH by the user's interactive shell rc (~/.bashrc). The SSH command
 # below runs a non-interactive non-login shell that doesn't source any rc file,
-# so `uv` isn't visible without this explicit prepend. The escaped `\$HOME` is
-# evaluated on the remote, not locally.
-remote_path_prefix='export PATH="$HOME/.local/bin:$PATH" && '
+# so `uv` isn't visible without this explicit prepend. The `$HOME` here is
+# evaluated on the remote, not locally (single-quoted).
+#
+# ~/.prpl_robot_env on the robot exports the robot's identity
+# (ROBOT_NAME, DEXCONTROL_COMM_CFG_PATH), which dexcontrol needs to
+# construct a Robot(); non-interactive shells never source ~/.bashrc, so
+# without this the server pane dies with "Variant not specified".
+remote_path_prefix='export PATH="$HOME/.local/bin:$PATH" && { [ ! -f ~/.prpl_robot_env ] || . ~/.prpl_robot_env; } && '
 
 # Bootstrap chained into the SSH command via `&&` so any step's failure
 # aborts the pane instead of starting the server (or shell) against
