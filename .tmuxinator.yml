@@ -1,0 +1,32 @@
+name: prpl-dexmate
+root: .
+<% branch = (@args && @args[0]) || '' %>
+
+# Launch with scripts/launch.sh (a thin wrapper that forwards a branch
+# name into this ERB as @args). Pass a branch to hard-sync the Jetson's
+# checkout to origin/<branch> before the server starts:
+#
+#   scripts/launch.sh my-feature-branch
+#
+# The Jetson is addressed by the SSH alias in PRPL_VEGA_HOST (default
+# "vega"); define it in ~/.ssh/config, e.g.
+#
+#   Host vega
+#     HostName 192.168.0.169
+#     User dexmate
+#
+# See README.md for prerequisites (passwordless SSH, tmuxinator, and a
+# clone of this repo on the Jetson).
+
+windows:
+  - prpl-dexmate:
+      layout: tiled
+      # Only the first pane syncs the Jetson checkout (PRPL_BRANCH set);
+      # the server pane sets PRPL_SKIP_SYNC=1 and waits on the sync
+      # pane's lock so it never starts against a half-synced tree.
+      panes:
+        - PRPL_BRANCH="<%= branch %>" ./scripts/run_remote.sh "${PRPL_VEGA_HOST:-vega}" bash
+        - PRPL_SKIP_SYNC=1 ./scripts/run_remote.sh "${PRPL_VEGA_HOST:-vega}"
+          python -m prpl_dexmate.remote.server
+        # Local orchestrator shell (planning runs here, not on the robot).
+        - source .venv/bin/activate
