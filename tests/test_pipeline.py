@@ -85,7 +85,9 @@ def test_remote_mode_rollout_completes(skill_server: SkillServer) -> None:
             "env.pipelines.remote.real_env.poll_period=0.05",
             "env.pipelines.remote.plan_executor.segment_duration=0.05",
             "env.pipelines.remote.plan_executor.hz=20.0",
-            "env.init_move_seconds=0.1",
+            # Must stay slow enough that the fold-to-init move (~1.3 rad on
+            # the biggest joint) passes the server's velocity-limit check.
+            "env.init_move_seconds=1.5",
         ],
     )
     summary = run_pipeline(cfg)

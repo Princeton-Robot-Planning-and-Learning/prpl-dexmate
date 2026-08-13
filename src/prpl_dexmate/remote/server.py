@@ -7,9 +7,12 @@ locally at the full control rate against an ``Interface``, and reports a
 connection must open with a hello carrying ``PROTOCOL_VERSION``, and a
 mismatch is rejected before any directive can be sent.
 
-Safety: only one directive runs at a time. While one is running, the
-orchestrator's status polls double as a heartbeat; if no request arrives
-for ``watchdog_timeout`` seconds, execution stops and the robot holds
+Safety: every trajectory directive is validated against the URDF
+position and velocity limits (``limits.validate_trajectory``) before
+anything moves; a violating directive is rejected at start. Only one
+directive runs at a time. While one is running, the orchestrator's
+status polls double as a heartbeat; if no request arrives for
+``watchdog_timeout`` seconds, execution stops and the robot holds
 position (the safe-stop for streamed position control). An explicit stop
 request does the same immediately.
 
@@ -33,6 +36,7 @@ from prpl_dexmate.interfaces.interface import (
     RealInterface,
 )
 from prpl_dexmate.interfaces.joint_interface import JointInterface
+from prpl_dexmate.limits import validate_trajectory
 from prpl_dexmate.motion import follow_joint_trajectory
 from prpl_dexmate.remote.protocol import (
     PROTOCOL_VERSION,
@@ -144,6 +148,10 @@ class SkillServer:
             return {"ok": False, "error": "Policy rollout is not implemented yet"}
         if not isinstance(directive, TrajectoryDirective):
             return {"ok": False, "error": "Not a directive"}
+        try:
+            validate_trajectory(directive.as_array(), directive.component, directive.hz)
+        except ValueError as e:
+            return {"ok": False, "error": f"Trajectory rejected: {e}"}
         with self._lock:
             if self._worker is not None and self._worker.is_alive():
                 return {"ok": False, "error": "A directive is already running"}
