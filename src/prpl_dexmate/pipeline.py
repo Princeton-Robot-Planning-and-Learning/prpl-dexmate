@@ -125,8 +125,13 @@ def run_pipeline(cfg: DictConfig, log_dir: Path | str | None = None) -> RolloutS
         total_reward = 0.0
         steps = 0
         finish_reason = "max_steps_reached"
-        for _ in range(cfg.max_eval_steps):
+        for step_index in range(cfg.max_eval_steps):
             try:
+                if cfg.mode == "remote":
+                    # The agent plans inside runner.step with no output of
+                    # its own; without this line the operator stares at a
+                    # silent terminal for up to planning_timeout seconds.
+                    print(f"Rollout step {step_index + 1}: planning...")
                 _, reward, terminated, truncated, _ = runner.step()
             except (AgentFailure, PlanExhausted) as e:
                 # A finite plan running out is the natural rollout end for

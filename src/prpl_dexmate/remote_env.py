@@ -132,10 +132,15 @@ class RemoteVegaEnv(gymnasium.Env[VegaObservation, TrajectoryDirective]):
         if self._confirm:
             preview_path = None
             if self._previewer is not None:
+                print("Rendering preview video (shadow sim)...")
                 preview_path = self._previewer.render_directive(
                     action, self.preview_dir
                 )
             _confirm_or_reject(action, self._prompt_fn, preview_path)
+        duration = len(action.trajectory) / action.hz
+        print(
+            f"Executing {action.component} directive on the robot ({duration:.1f}s)..."
+        )
         result = self._client.execute_directive(action, poll_period=self._poll_period)
         if result.status is not DirectiveStatus.SUCCEEDED:
             print(
