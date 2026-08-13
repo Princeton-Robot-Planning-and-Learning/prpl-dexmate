@@ -9,7 +9,7 @@
 defaults:
   - _self_
   - env: ???
-  - agent: scripted
+  - agent: bilevel_planning
 
 hydra:
   run:
@@ -28,5 +28,5 @@ record:
   video: false
   fps: 10
 
-# The planning agent is a Hydra group: `agent=scripted` (default) or
-# `agent=bilevel_planning`. See conf/agent/.
+# The planning agent is a Hydra group: `agent=bilevel_planning` (default)
+# or `agent=scripted` (dependency-light, deterministic). See conf/agent/.
