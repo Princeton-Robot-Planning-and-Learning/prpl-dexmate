@@ -14,7 +14,7 @@ target_pose: [0.5, -0.4, 0.8]
 # Remote mode sends a min-jerk trajectory directive over
 # init_move_seconds. Real (streaming) mode will need the same via a
 # gentle move_and_wait before the rollout; not yet implemented.
-init_right_arm_conf: [-1.043, -1.278, -0.793, -1.778, -0.148, -0.396, 0.417]
+init_right_arm_conf: [-1.809, -0.636, 0.244, -2.04, -0.841, -0.129, 0.833]
 init_move_seconds: 5.0
 
 pipelines:

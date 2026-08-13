@@ -12,7 +12,7 @@ from prpl_dexmate.remote.protocol import TrajectoryDirective
 from prpl_dexmate.sim_env import KinderSimEnv
 from prpl_dexmate.structs import NUM_HEAD_JOINTS
 
-INIT_CONF = np.array([-1.043, -1.278, -0.793, -1.778, -0.148, -0.396, 0.417])
+INIT_CONF = np.array([-1.809, -0.636, 0.244, -2.04, -0.841, -0.129, 0.833])
 
 
 def _make_previewer() -> DirectivePreviewer:
