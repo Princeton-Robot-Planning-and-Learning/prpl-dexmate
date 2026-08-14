@@ -8,6 +8,7 @@ import pytest
 from prpl_dexmate.park import (
     ParkingBlocked,
     ParkingPlanner,
+    clip_conf_to_limits,
     vendor_allowed_collision_pairs,
 )
 
@@ -116,6 +117,23 @@ def test_grippers_mounted_home_storage_round_trip(
         gripper_planner.storage_right, gripper_planner.storage_left, "home"
     )
     assert [m.component for m in back] == ["right_arm", "left_arm"]
+
+
+def test_clip_conf_to_limits_recovers_backdriven_wrist() -> None:
+    """The incident wrist values clip to just inside the limits.
+
+    Gripper mounting left the right wrist at 1.522 rad against a 1.378 URDF limit (left
+    mirrored); the overshoot feeds the recovery move's start-error allowance.
+    """
+    incident_right = np.array([-1.809, -0.637, 0.243, -2.029, -0.831, -0.117, 1.522])
+    clipped, overshoot = clip_conf_to_limits(incident_right, "right_arm")
+    assert clipped[6] == pytest.approx(1.368, abs=1e-3)
+    assert overshoot == pytest.approx(0.154, abs=1e-3)
+    assert np.allclose(clipped[:6], incident_right[:6])
+    in_range = np.zeros(7)
+    same, none = clip_conf_to_limits(in_range, "left_arm")
+    assert np.allclose(same, in_range)
+    assert none == 0.0
 
 
 def test_vendor_srdf_pairs_parse() -> None:

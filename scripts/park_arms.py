@@ -20,7 +20,7 @@ import argparse
 import numpy as np
 
 from prpl_dexmate.motion import min_jerk_trajectory
-from prpl_dexmate.park import ParkingBlocked, ParkingPlanner
+from prpl_dexmate.park import ParkingBlocked, ParkingPlanner, clip_conf_to_limits
 from prpl_dexmate.remote.client import SkillClient
 from prpl_dexmate.remote.protocol import TrajectoryDirective
 from prpl_dexmate.remote.server import DEFAULT_PORT
@@ -48,6 +48,20 @@ def _main() -> None:
     print("right arm at:", np.round(current_right, 3).tolist())
     print("left arm at: ", np.round(current_left, 3).tolist())
 
+    # Joints back-driven past their soft limits (e.g. by gripper mounting)
+    # cannot legally appear in a trajectory, so plan from the clipped
+    # confs and let each arm's first move pull the joint back inside via
+    # a widened start-error allowance.
+    current_right, overshoot_right = clip_conf_to_limits(current_right, "right_arm")
+    current_left, overshoot_left = clip_conf_to_limits(current_left, "left_arm")
+    start_allowance = {"right_arm": overshoot_right, "left_arm": overshoot_left}
+    for component, overshoot in start_allowance.items():
+        if overshoot > 0.0:
+            print(
+                f"WARNING: {component} is {overshoot:.3f} rad beyond a soft "
+                "limit; its first move will pull the joint back into range."
+            )
+
     print("Planning and collision-checking parking moves...")
     planner = ParkingPlanner(grippers_mounted=args.grippers)
     try:
@@ -72,8 +86,11 @@ def _main() -> None:
         trajectory = min_jerk_trajectory(
             move.start, move.end, duration=move.seconds, hz=MOVE_HZ
         )
+        max_start_error = 0.05 + start_allowance.pop(move.component, 0.0)
         result = client.execute_directive(
-            TrajectoryDirective.from_array(move.component, trajectory, hz=MOVE_HZ)
+            TrajectoryDirective.from_array(
+                move.component, trajectory, hz=MOVE_HZ, max_start_error=max_start_error
+            )
         )
         print(result)
     observation = client.get_observation()
