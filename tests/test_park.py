@@ -5,7 +5,11 @@ from typing import Iterator
 import numpy as np
 import pytest
 
-from prpl_dexmate.park import ParkingBlocked, ParkingPlanner
+from prpl_dexmate.park import (
+    ParkingBlocked,
+    ParkingPlanner,
+    vendor_allowed_collision_pairs,
+)
 
 
 @pytest.fixture(name="planner", scope="module")
@@ -112,6 +116,31 @@ def test_grippers_mounted_home_storage_round_trip(
         gripper_planner.storage_right, gripper_planner.storage_left, "home"
     )
     assert [m.component for m in back] == ["right_arm", "left_arm"]
+
+
+def test_vendor_srdf_pairs_parse() -> None:
+    """The vendor SRDF yields the wrist pairs that bit us on hardware."""
+    pairs = {frozenset(p) for p in vendor_allowed_collision_pairs()}
+    assert frozenset(("L_arm_l5", "L_arm_l7")) in pairs
+    assert frozenset(("R_arm_l5", "R_arm_l7")) in pairs
+    assert len(pairs) > 50
+
+
+def test_mounting_backdriven_wrists_can_repark(
+    gripper_planner: ParkingPlanner,
+) -> None:
+    """Regression: the exact post-mounting poses from hardware plan cleanly.
+
+    Gripper installation back-drove both wrist rolls ~0.7 rad; at those angles the
+    coarse wrist-link hulls overlap in the model, and before the vendor SRDF pairs were
+    honored the planner refused to move at all (2026-08-13 incident).
+    """
+    current_right = np.array([-1.809, -0.637, 0.243, -2.029, -0.831, -0.117, 1.522])
+    current_left = np.array([1.817, 0.632, -0.236, -2.03, 0.759, -0.023, -1.506])
+    moves = gripper_planner.plan_parking_moves(current_right, current_left, "home")
+    assert [m.component for m in moves] == ["right_arm", "left_arm"]
+    assert np.allclose(moves[0].end, gripper_planner.home_right)
+    assert np.allclose(moves[1].end, gripper_planner.home_left)
 
 
 def test_grippers_mounted_blocks_leaving_the_fold(
