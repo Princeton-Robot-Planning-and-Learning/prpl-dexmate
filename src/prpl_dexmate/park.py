@@ -23,8 +23,11 @@ bring-up):
 ``scripts/park_arms.py``.
 """
 
+import xml.etree.ElementTree as ET
 from dataclasses import dataclass
+from pathlib import Path
 
+import dexmate_urdf
 import numpy as np
 from kinder.envs.kinematic3d_v2.vega_motion3d import ObjectCentricVegaMotion3DEnv
 from numpy.typing import NDArray
@@ -33,6 +36,27 @@ from prpl_dexmate.interfaces.interface import (
     FOLDED_LEFT_ARM_CONF,
     FOLDED_RIGHT_ARM_CONF,
 )
+
+
+def vendor_allowed_collision_pairs() -> list[tuple[str, str]]:
+    """Link pairs DexMate's SRDF declares as expected-touching.
+
+    The robot model's own allowed-pair list is discovered at the home
+    pose, which misses pairs whose coarse collision hulls only overlap at
+    other joint angles (e.g. the wrist links ``arm_l5``/``arm_l7`` at
+    some rolls — encountered on hardware when gripper mounting
+    back-drove the wrists). The vendor's SRDF is authoritative about
+    which link pairs may legitimately touch across the whole range.
+    """
+    srdf = (
+        Path(dexmate_urdf.__file__).parent
+        / "robots/humanoid/vega_1u/vega_1u_gripper.srdf"
+    )
+    return [
+        (str(entry.get("link1")), str(entry.get("link2")))
+        for entry in ET.parse(srdf).getroot().iter("disable_collisions")
+    ]
+
 
 # The gripper-safe compact fold: the shipping fold with only the
 # forearm-roll joints (j5) turned so the grippers face outward instead of
@@ -86,6 +110,7 @@ class ParkingPlanner:
         self._env = ObjectCentricVegaMotion3DEnv()
         self._env.reset(seed=0)
         self._checker = self._env._collision_checker  # pylint: disable=protected-access
+        self._checker.ignore(vendor_allowed_collision_pairs())
         self._base_config = dict(
             self._env._configuration
         )  # pylint: disable=protected-access
