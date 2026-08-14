@@ -6,10 +6,14 @@ bring-up):
 * The model home is the resting pose while powered (collision-free with
   grippers, valid planning start; the remote pipeline's init move from it
   is null).
-* The shipping fold is the power-off pose: the arms rest on mechanical
-  end-stops there, so nothing sags when motor power cuts. Whether the
-  joints hold position unpowered elsewhere is unverified, so fold before
-  every power-off.
+* The shipping fold is the gripper-less power-off pose: the arms rest on
+  mechanical end-stops there, so nothing sags when motor power cuts.
+  Whether the joints hold position unpowered elsewhere is unverified, so
+  fold (or storage, below) before every power-off.
+* Once grippers are mounted the shipping fold self-collides and is
+  refused; the storage pose (the fold with the forearm-roll joints
+  turned so the grippers face outward) inherits the end-stop property
+  and replaces it.
 * All parking motion routes through home, one arm at a time, and every
   straight-line segment is checked against the collision model (gripper
   links excluded, matching the gripper-less robot) from the arms'
@@ -29,6 +33,16 @@ from prpl_dexmate.interfaces.interface import (
     FOLDED_LEFT_ARM_CONF,
     FOLDED_RIGHT_ARM_CONF,
 )
+
+# The gripper-safe compact fold: the shipping fold with only the
+# forearm-roll joints (j5) turned so the grippers face outward instead of
+# into each other (11.7 cm modeled cross clearance). The elbows stay on
+# their mechanical end-stops, so this remains a safe power-off pose. Once
+# grippers are mounted this REPLACES the shipping fold, which
+# self-collides with gripper geometry (see the parked-pose analysis,
+# 2026-08-13, and prpl-mono#532 for the gripper model provenance).
+_STORAGE_J5_RIGHT = -1.0
+_STORAGE_J5_LEFT = 2.0
 
 # A joint already within this distance of its target needs no move.
 _SKIP_TOLERANCE = 0.05
@@ -57,25 +71,38 @@ class ParkingMove:
 
 
 class ParkingPlanner:
-    """Plan fold/home parking moves, collision-checked against the model.
+    """Plan fold/home/storage parking moves, collision-checked in sim.
 
     Home confs come from the robot model at runtime (not hardcoded), so
     changes to the model home propagate here automatically.
+
+    With ``grippers_mounted=True``, collision checks include the gripper
+    links (before mounting they are phantoms and are excluded), and the
+    shipping fold is refused as a goal — with grippers it is a real
+    self-collision. The storage pose is the gripper-safe replacement.
     """
 
-    def __init__(self) -> None:
+    def __init__(self, grippers_mounted: bool = False) -> None:
         self._env = ObjectCentricVegaMotion3DEnv()
         self._env.reset(seed=0)
         self._checker = self._env._collision_checker  # pylint: disable=protected-access
         self._base_config = dict(
             self._env._configuration
         )  # pylint: disable=protected-access
-        self._gripper_nodes = [n for n in self._env.tree.nodes if "gripper" in n]
+        self.grippers_mounted = grippers_mounted
+        if grippers_mounted:
+            self._ignored_nodes: list[str] = []
+        else:
+            self._ignored_nodes = [n for n in self._env.tree.nodes if "gripper" in n]
         home = self._env.robot.home
         self.home_right = np.array([home[f"R_arm_j{i}"][0] for i in range(1, 8)])
         self.home_left = np.array([home[f"L_arm_j{i}"][0] for i in range(1, 8)])
         self.fold_right = np.array(FOLDED_RIGHT_ARM_CONF)
         self.fold_left = np.array(FOLDED_LEFT_ARM_CONF)
+        self.storage_right = self.fold_right.copy()
+        self.storage_right[4] = _STORAGE_J5_RIGHT
+        self.storage_left = self.fold_left.copy()
+        self.storage_left[4] = _STORAGE_J5_LEFT
 
     def close(self) -> None:
         """Tear down the sim env."""
@@ -86,7 +113,7 @@ class ParkingPlanner:
         for i in range(7):
             config[f"R_arm_j{i+1}"] = [float(right[i])]
             config[f"L_arm_j{i+1}"] = [float(left[i])]
-        return not self._checker.in_collision(config, ignored_nodes=self._gripper_nodes)
+        return not self._checker.in_collision(config, ignored_nodes=self._ignored_nodes)
 
     def _path_clear(self, start_r, start_l, end_r, end_l) -> bool:
         return all(
@@ -104,13 +131,24 @@ class ParkingPlanner:
     ) -> list[ParkingMove]:
         """Moves taking both arms from their current confs to ``goal``.
 
-        ``goal`` is ``"home"`` or ``"fold"``. Each arm routes through home
-        (skipping segments it is already at), right arm first. Raises
-        ParkingBlocked if any segment is not collision-free in sim.
+        ``goal`` is ``"home"``, ``"fold"``, or ``"storage"``. Each arm
+        routes through home (skipping segments it is already at), right
+        arm first. Raises ParkingBlocked if any segment is not
+        collision-free in sim, and ValueError for the fold goal with
+        grippers mounted (a real self-collision, not merely blocked).
         """
-        assert goal in ("home", "fold")
-        goal_right = self.home_right if goal == "home" else self.fold_right
-        goal_left = self.home_left if goal == "home" else self.fold_left
+        assert goal in ("home", "fold", "storage")
+        if goal == "fold" and self.grippers_mounted:
+            raise ValueError(
+                "The shipping fold self-collides with grippers mounted; "
+                "park to 'storage' instead."
+            )
+        goals = {
+            "home": (self.home_right, self.home_left),
+            "fold": (self.fold_right, self.fold_left),
+            "storage": (self.storage_right, self.storage_left),
+        }
+        goal_right, goal_left = goals[goal]
         moves: list[ParkingMove] = []
         # Track where each arm is as the move sequence progresses, so each
         # segment is checked with the other arm where it will actually be.

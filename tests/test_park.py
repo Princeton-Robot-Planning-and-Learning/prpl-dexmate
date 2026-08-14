@@ -65,3 +65,64 @@ def test_blocked_path_refuses(
     monkeypatch.setattr(planner, "_path_clear", lambda *args: False)
     with pytest.raises(ParkingBlocked, match="not collision-free"):
         planner.plan_parking_moves(planner.fold_right, planner.fold_left, "home")
+
+
+def test_storage_round_trips_through_home(planner: ParkingPlanner) -> None:
+    """Storage is reachable from home directly and from fold via home."""
+    moves = planner.plan_parking_moves(planner.home_right, planner.home_left, "storage")
+    assert [m.component for m in moves] == ["right_arm", "left_arm"]
+    assert np.allclose(moves[0].end, planner.storage_right)
+    from_fold = planner.plan_parking_moves(
+        planner.fold_right, planner.fold_left, "storage"
+    )
+    assert [m.component for m in from_fold] == [
+        "right_arm",
+        "right_arm",
+        "left_arm",
+        "left_arm",
+    ]
+    assert np.allclose(from_fold[1].end, planner.storage_right)
+    assert np.allclose(from_fold[3].end, planner.storage_left)
+
+
+@pytest.fixture(name="gripper_planner", scope="module")
+def _gripper_planner_fixture() -> Iterator[ParkingPlanner]:
+    planner = ParkingPlanner(grippers_mounted=True)
+    yield planner
+    planner.close()
+
+
+def test_grippers_mounted_refuses_fold(gripper_planner: ParkingPlanner) -> None:
+    """With grippers mounted the shipping fold is not a legal goal."""
+    with pytest.raises(ValueError, match="self-collides"):
+        gripper_planner.plan_parking_moves(
+            gripper_planner.home_right, gripper_planner.home_left, "fold"
+        )
+
+
+def test_grippers_mounted_home_storage_round_trip(
+    gripper_planner: ParkingPlanner,
+) -> None:
+    """Home <-> storage plans cleanly with gripper geometry included."""
+    there = gripper_planner.plan_parking_moves(
+        gripper_planner.home_right, gripper_planner.home_left, "storage"
+    )
+    assert [m.component for m in there] == ["right_arm", "left_arm"]
+    back = gripper_planner.plan_parking_moves(
+        gripper_planner.storage_right, gripper_planner.storage_left, "home"
+    )
+    assert [m.component for m in back] == ["right_arm", "left_arm"]
+
+
+def test_grippers_mounted_blocks_leaving_the_fold(
+    gripper_planner: ParkingPlanner,
+) -> None:
+    """From the (illegal) fold with grippers, even moving out is blocked.
+
+    The fold itself is in collision with gripper geometry, so the first path sample
+    fails — the planner refuses rather than sweeping the grippers through each other.
+    """
+    with pytest.raises(ParkingBlocked):
+        gripper_planner.plan_parking_moves(
+            gripper_planner.fold_right, gripper_planner.fold_left, "home"
+        )

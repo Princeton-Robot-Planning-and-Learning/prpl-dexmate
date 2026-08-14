@@ -1,14 +1,18 @@
-"""Park both arms at the model home or the shipping fold, safely.
+"""Park both arms at the model home, the shipping fold, or storage.
 
 Usage (with the skill server running on the robot):
 
-    python scripts/park_arms.py --to home --host 192.168.0.169   # session start
-    python scripts/park_arms.py --to fold --host 192.168.0.169   # before power-off
+    python scripts/park_arms.py --to home --host <robot>       # session start
+    python scripts/park_arms.py --to fold --host <robot>       # power-off, no grippers
+    python scripts/park_arms.py --to storage --grippers ...    # power-off, grippers on
 
-Observes the arms' actual positions, plans single-arm min-jerk moves
-routed through home with every straight-line segment collision-checked
-in sim first, and asks for confirmation before each motion. See
-``prpl_dexmate.park`` for the operational rules this encodes.
+Pass ``--grippers`` once grippers are physically mounted: collision
+checks then include the gripper geometry, and the shipping fold is
+refused (it self-collides with grippers). Observes the arms' actual
+positions, plans single-arm min-jerk moves routed through home with
+every straight-line segment collision-checked in sim first, and asks
+for confirmation before each motion. See ``prpl_dexmate.park`` for the
+operational rules this encodes.
 """
 
 import argparse
@@ -26,9 +30,15 @@ MOVE_HZ = 20.0
 
 def _main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--to", choices=("home", "fold"), required=True)
+    parser.add_argument("--to", choices=("home", "fold", "storage"), required=True)
     parser.add_argument("--host", default="192.168.0.169")
     parser.add_argument("--port", type=int, default=DEFAULT_PORT)
+    parser.add_argument(
+        "--grippers",
+        action="store_true",
+        help="Grippers are physically mounted: include their geometry in "
+        "collision checks and refuse the shipping fold.",
+    )
     args = parser.parse_args()
 
     client = SkillClient(args.host, args.port)
@@ -39,10 +49,10 @@ def _main() -> None:
     print("left arm at: ", np.round(current_left, 3).tolist())
 
     print("Planning and collision-checking parking moves...")
-    planner = ParkingPlanner()
+    planner = ParkingPlanner(grippers_mounted=args.grippers)
     try:
         moves = planner.plan_parking_moves(current_right, current_left, args.to)
-    except ParkingBlocked as e:
+    except (ParkingBlocked, ValueError) as e:
         print(f"REFUSING TO MOVE: {e}")
         client.close()
         planner.close()
