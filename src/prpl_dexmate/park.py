@@ -170,6 +170,30 @@ class ParkingPlanner:
             for t in np.linspace(0.0, 1.0, 100)
         )
 
+    def parking_deviation(
+        self,
+        right: NDArray[np.float64],
+        left: NDArray[np.float64],
+        goal: str,
+    ) -> float:
+        """The max per-joint distance of the observed confs from ``goal``.
+
+        The final-verdict check for the parking script: a small value
+        means the robot really is parked where it was asked to go. Added
+        after an incident where two directives failed mid-route, the
+        script marched on, and the arms were quietly left ~60% of the
+        way to home for days (2026-08-14).
+        """
+        goals = {
+            "home": (self.home_right, self.home_left),
+            "fold": (self.fold_right, self.fold_left),
+            "storage": (self.storage_right, self.storage_left),
+        }
+        goal_right, goal_left = goals[goal]
+        return float(
+            max(np.max(np.abs(right - goal_right)), np.max(np.abs(left - goal_left)))
+        )
+
     def plan_parking_moves(
         self,
         current_right: NDArray[np.float64],

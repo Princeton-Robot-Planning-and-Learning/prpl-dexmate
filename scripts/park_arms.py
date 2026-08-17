@@ -22,7 +22,7 @@ import numpy as np
 from prpl_dexmate.motion import min_jerk_trajectory
 from prpl_dexmate.park import ParkingBlocked, ParkingPlanner, clip_conf_to_limits
 from prpl_dexmate.remote.client import SkillClient
-from prpl_dexmate.remote.protocol import TrajectoryDirective
+from prpl_dexmate.remote.protocol import DirectiveStatus, TrajectoryDirective
 from prpl_dexmate.remote.server import DEFAULT_PORT
 
 MOVE_HZ = 20.0
@@ -93,13 +93,32 @@ def _main() -> None:
             )
         )
         print(result)
+        if result.status is not DirectiveStatus.SUCCEEDED:
+            print(
+                f"\n*** {move.component} move {result.status.value.upper()}; "
+                "stopping here — the arm is holding mid-route, NOT parked."
+            )
+            break
     observation = client.get_observation()
-    print("\nfinal right:", np.round(observation.right_arm_conf, 3).tolist())
-    print("final left: ", np.round(observation.left_arm_conf, 3).tolist())
-    if args.to == "fold":
-        print("Folded arms rest on end-stops: safe to power off.")
+    final_right = np.array(observation.right_arm_conf)
+    final_left = np.array(observation.left_arm_conf)
+    print("\nfinal right:", np.round(final_right, 3).tolist())
+    print("final left: ", np.round(final_left, 3).tolist())
+    deviation = planner.parking_deviation(final_right, final_left, args.to)
+    if deviation < 0.05:
+        print(f"PARKED at {args.to} (max joint deviation {deviation:.3f} rad).")
+        if args.to in ("fold", "storage"):
+            print("Arms rest on end-stops: safe to power off.")
+    else:
+        print(
+            f"*** NOT PARKED: max joint deviation from {args.to} is "
+            f"{deviation:.3f} rad. Do not power off away from end-stops; "
+            "investigate before proceeding."
+        )
     client.close()
     planner.close()
+    if deviation >= 0.05:
+        raise SystemExit(1)
 
 
 if __name__ == "__main__":
