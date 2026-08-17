@@ -142,3 +142,19 @@ def test_sim_mode_with_bilevel_planning_reaches_goal() -> None:
     """In sim the planner reaches the target and the env terminates."""
     summary = run_pipeline(_compose("sim"))
     assert summary.finish_reason == "terminated"
+
+
+def test_pickplace_sim_with_bilevel_planning_reaches_goal() -> None:
+    """The planner solves a VegaPickPlace3D episode end to end in sim.
+
+    Seed 0 is the single-arm case (cube and target both reachable by one arm); planning
+    takes tens of seconds under the env's budgets.
+    """
+    with initialize(version_base=None, config_path="../conf"):
+        cfg = compose(
+            config_name="config",
+            overrides=["mode=sim", "env=vega_pickplace3d"],
+        )
+    summary = run_pipeline(cfg)
+    assert summary.env_name == "vega_pickplace3d"
+    assert summary.finish_reason == "terminated"

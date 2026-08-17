@@ -1,13 +1,13 @@
-# Bilevel planning agent over the kinder-baselines VegaMotion3D env
-# models: samples a reachable end-effector pose at the target, solves IK,
-# motion-plans a collision-free joint path, and emits bounded joint
-# deltas.
+# Bilevel planning agent over the kinder-baselines env models for the
+# selected env. Planning budgets are env-specific (a tabletop reach and a
+# bimanual pick-and-place need very different horizons and timeouts), so
+# they interpolate from the env config's `planning` block.
 _target_: kinder_bilevel_planning.agent.BilevelPlanningAgent
-max_abstract_plans: 10
-samples_per_step: 3
-max_skill_horizon: 100
+max_abstract_plans: ${env.planning.max_abstract_plans}
+samples_per_step: ${env.planning.samples_per_step}
+max_skill_horizon: ${env.planning.max_skill_horizon}
 heuristic_name: hff
-planning_timeout: 60.0
+planning_timeout: ${env.planning.planning_timeout}
 env_models:
   _target_: prpl_dexmate.real_sim.build_planner_env_models
   env_name: ${env.env_name}

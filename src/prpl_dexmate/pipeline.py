@@ -121,7 +121,20 @@ def run_pipeline(cfg: DictConfig, log_dir: Path | str | None = None) -> RolloutS
                     finish_reason=f"directive_rejected: {e}",
                     total_reward=0.0,
                 )
-        runner.reset(seed=cfg.seed)
+        # The bilevel agent plans during reset, so a planning failure can
+        # surface here as well as in the step loop; both end the rollout
+        # cleanly rather than crashing the pipeline.
+        try:
+            runner.reset(seed=cfg.seed)
+        except AgentFailure as e:
+            return RolloutSummary(
+                env_name=cfg.env.env_name,
+                mode=cfg.mode,
+                seed=cfg.seed,
+                steps=0,
+                finish_reason=f"agent_failure_at_reset: {e}",
+                total_reward=0.0,
+            )
         total_reward = 0.0
         steps = 0
         finish_reason = "max_steps_reached"
