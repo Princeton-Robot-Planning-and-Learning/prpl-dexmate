@@ -136,6 +136,19 @@ def test_clip_conf_to_limits_recovers_backdriven_wrist() -> None:
     assert none == 0.0
 
 
+def test_parking_deviation_verdict(planner: ParkingPlanner) -> None:
+    """The final-verdict metric: zero at goal, large at the incident pose."""
+    assert planner.parking_deviation(
+        planner.home_right, planner.home_left, "home"
+    ) == pytest.approx(0.0)
+    # The 2026-08-14 incident: arms left ~60% of the way from storage to
+    # home after two failed directives; the tool reported neutrally.
+    incident_right = np.array([-1.722, -0.385, 0.147, -2.424, -1.099, -0.078, 1.541])
+    incident_left = np.array([1.742, 0.435, -0.161, -2.369, 1.081, 0.151, -1.507])
+    deviation = planner.parking_deviation(incident_right, incident_left, "home")
+    assert deviation > 0.5  # Loudly not parked.
+
+
 def test_vendor_srdf_pairs_parse() -> None:
     """The vendor SRDF yields the wrist pairs that bit us on hardware."""
     pairs = {frozenset(p) for p in vendor_allowed_collision_pairs()}
