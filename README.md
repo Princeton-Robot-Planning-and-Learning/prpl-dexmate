@@ -34,11 +34,14 @@ Prerequisites, one-time:
 - A clone of this repo on the Jetson at `~/prpl-dexmate` (override with
   `PRPL_REMOTE_REPO_DIR`), with `uv` installed there.
 - A `~/.prpl_robot_env` file on the Jetson exporting the robot's
-  identity, which dexcontrol needs to construct a `Robot()` (the
-  launcher sources it in every pane):
+  identity and end-effector configuration, which dexcontrol needs to
+  construct a `Robot()` (the launcher sources it in every pane;
+  `vega_1u_gripper` is from `dexbot cfg list` and matches the mounted
+  DexGripper S end effectors):
 
   ```bash
   export ROBOT_NAME=dm/vg78194c5120-1u
+  export ROBOT_CONFIG=vega_1u_gripper
   export DEXCONTROL_COMM_CFG_PATH="$HOME/.dexmate/comm/zenoh/dm_vg78194c5120-1u.dzcfg"
   ```
 - Passwordless SSH to the Jetson under an alias named `vega` (override
