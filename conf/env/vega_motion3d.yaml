@@ -3,6 +3,13 @@
 env_name: vega_motion3d
 env_id: kinder/VegaMotion3D-v0
 
+# Bilevel planning budgets (interpolated into conf/agent/bilevel_planning.yaml).
+planning:
+  max_abstract_plans: 10
+  samples_per_step: 3
+  max_skill_horizon: 100
+  planning_timeout: 60.0
+
 # Used by the fake-mode target source: where the agent thinks the target
 # is. (Sim mode reads the target from the kinder env directly; a future
 # real-mode perceiver will estimate it from the head camera.)

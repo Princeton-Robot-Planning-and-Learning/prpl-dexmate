@@ -13,9 +13,9 @@ dependencies = [
    "dexmate-urdf",
    "gymnasium",
    "hydra-core",
-   "kinder_bilevel_planning @ git+https://github.com/Princeton-Robot-Planning-and-Learning/kinder-baselines.git@20c0487#subdirectory=kinder-bilevel-planning",
-   "kinder_models @ git+https://github.com/Princeton-Robot-Planning-and-Learning/kinder-baselines.git@20c0487#subdirectory=kinder-models",
-   "kindergarden[prpl-kinematics]>=0.2.2",
+   "kinder_bilevel_planning @ git+https://github.com/Princeton-Robot-Planning-and-Learning/kinder-baselines.git@4da339f#subdirectory=kinder-bilevel-planning",
+   "kinder_models @ git+https://github.com/Princeton-Robot-Planning-and-Learning/kinder-baselines.git@4da339f#subdirectory=kinder-models",
+   "kindergarden[prpl-kinematics]>=0.2.3",
    # Floor for the symmetric Vega home (prpl-mono#530); kindergarden's extra
    # alone does not guarantee it.
    "prpl_kinematics>=0.0.2",

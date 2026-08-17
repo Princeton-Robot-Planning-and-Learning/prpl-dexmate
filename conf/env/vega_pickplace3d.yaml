@@ -1,0 +1,31 @@
+# kinder/VegaPickPlace3D-v0 — bimanual cube transfer to a target patch
+# (kindergarden #157), with bilevel planning models from kinder-baselines
+# #117.
+#
+# Sim mode only for now. The real/remote pipelines need three pieces of
+# design the motion env did not: perceiving the cube (camera or a staged
+# constant source), decomposing bimanual+grasp plans into per-component
+# directives, and grasp-state bookkeeping on the real robot.
+
+env_name: vega_pickplace3d
+env_id: kinder/VegaPickPlace3D-v0
+
+# Bilevel planning budgets (interpolated into conf/agent/bilevel_planning.yaml).
+# Matched to the budgets kinder-baselines' own VegaPickPlace3D planning tests
+# use: pick-and-place plans are long (up to a handover), so the skill horizon
+# and timeout are far larger than the reach env's.
+planning:
+  max_abstract_plans: 10
+  samples_per_step: 2
+  max_skill_horizon: 1000
+  planning_timeout: 600.0
+
+pipelines:
+  sim:
+    real_env:
+      _target_: prpl_dexmate.sim_env.KinderSimEnv
+      env_id: ${env.env_id}
+    perceiver:
+      _target_: prpl_dexmate.real_sim.perceivers.passthrough.PassThroughPerceiver
+    plan_executor:
+      _target_: prpl_dexmate.real_sim.plan_executors.passthrough.PassThroughPlanExecutor
