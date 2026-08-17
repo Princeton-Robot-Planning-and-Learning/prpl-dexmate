@@ -7,6 +7,7 @@ from prpl_dexmate.remote.protocol import (
     PROTOCOL_VERSION,
     DirectiveResult,
     DirectiveStatus,
+    GripperDirective,
     PolicyRolloutDirective,
     TrajectoryDirective,
     deserialize_message,
@@ -44,6 +45,16 @@ def test_trajectory_array_round_trip() -> None:
     directive = TrajectoryDirective.from_array("head", trajectory, hz=20.0)
     assert directive.hz == 20.0
     assert np.allclose(directive.as_array(), trajectory)
+
+
+def test_gripper_directive_round_trip_and_validation() -> None:
+    """Gripper directives serialize and reject bad sides/actions."""
+    directive = GripperDirective(side="left", action="open")
+    assert deserialize_message(serialize_message(directive)) == directive
+    with pytest.raises(AssertionError):
+        GripperDirective(side="torso", action="open")
+    with pytest.raises(AssertionError):
+        GripperDirective(side="left", action="wave")
 
 
 def test_policy_rollout_directive_round_trip() -> None:

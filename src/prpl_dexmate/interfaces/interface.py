@@ -8,6 +8,11 @@ import abc
 
 from dexcontrol.robot import Robot
 
+from prpl_dexmate.interfaces.gripper_interface import (
+    FakeGripperInterface,
+    GripperInterface,
+    RealGripperInterface,
+)
 from prpl_dexmate.interfaces.joint_interface import (
     FakeJointInterface,
     JointInterface,
@@ -33,6 +38,8 @@ class Interface(abc.ABC):
     right_arm_interface: JointInterface
     left_arm_interface: JointInterface
     head_interface: JointInterface
+    right_gripper_interface: GripperInterface
+    left_gripper_interface: GripperInterface
 
     def get_observation(self) -> VegaObservation:
         """Build a full VegaObservation from the component getters."""
@@ -40,6 +47,8 @@ class Interface(abc.ABC):
             right_arm_conf=self.right_arm_interface.get_joint_state(),
             left_arm_conf=self.left_arm_interface.get_joint_state(),
             head_conf=self.head_interface.get_joint_state(),
+            right_gripper_pos=self.right_gripper_interface.get_position(),
+            left_gripper_pos=self.left_gripper_interface.get_position(),
         )
 
     def close(self) -> None:
@@ -50,12 +59,14 @@ class Interface(abc.ABC):
 
 
 class FakeInterface(Interface):
-    """A fake interface composing fake arm and head interfaces."""
+    """A fake interface composing fake arm, head, and gripper interfaces."""
 
     def __init__(self) -> None:
         self.right_arm_interface = FakeJointInterface(FOLDED_RIGHT_ARM_CONF)
         self.left_arm_interface = FakeJointInterface(FOLDED_LEFT_ARM_CONF)
         self.head_interface = FakeJointInterface(HOME_HEAD_CONF)
+        self.right_gripper_interface = FakeGripperInterface()
+        self.left_gripper_interface = FakeGripperInterface()
 
 
 class RealInterface(Interface):
@@ -72,6 +83,14 @@ class RealInterface(Interface):
         self.right_arm_interface = RealJointInterface(self._robot.right_arm)
         self.left_arm_interface = RealJointInterface(self._robot.left_arm)
         self.head_interface = RealJointInterface(self._robot.head)
+        # dexcontrol creates the hand components only when grippers are
+        # detected at the wrists; the wrappers fail loudly on use if not.
+        self.right_gripper_interface = RealGripperInterface(
+            getattr(self._robot, "right_hand", None), "right"
+        )
+        self.left_gripper_interface = RealGripperInterface(
+            getattr(self._robot, "left_hand", None), "left"
+        )
 
     def close(self) -> None:
         self._robot.shutdown()

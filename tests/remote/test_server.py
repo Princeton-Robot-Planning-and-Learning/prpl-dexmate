@@ -117,6 +117,19 @@ def test_observe_returns_joint_state(client: SkillClient) -> None:
     assert np.allclose(observation.head_conf, HOME_HEAD_CONF)
 
 
+def test_gripper_directives_execute(client: SkillClient) -> None:
+    """Open and close directives drive the fake grippers and report back."""
+    result = client.open_gripper("right")
+    assert result.status == DirectiveStatus.SUCCEEDED
+    assert "gripper position" in result.message
+    assert client.get_observation().right_gripper_pos == pytest.approx(0.6)
+    # The other gripper is untouched.
+    assert client.get_observation().left_gripper_pos == pytest.approx(0.1)
+    result = client.close_gripper("right")
+    assert result.status == DirectiveStatus.SUCCEEDED
+    assert client.get_observation().right_gripper_pos == pytest.approx(0.1)
+
+
 def test_policy_rollout_not_implemented(client: SkillClient) -> None:
     """Policy rollout directives are rejected for now."""
     with pytest.raises(SkillServerError, match="not implemented"):
