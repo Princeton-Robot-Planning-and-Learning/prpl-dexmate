@@ -8,11 +8,18 @@ NUM_HEAD_JOINTS = 3
 
 @dataclass(frozen=True)
 class VegaObservation:
-    """Raw joint observations from the Vega environment."""
+    """Raw joint observations from the Vega environment.
+
+    The gripper positions are single joint values (one actuated joint
+    per Dexgripper S); they default to 0.0 so observation construction
+    predating the grippers stays valid.
+    """
 
     right_arm_conf: list[float]
     left_arm_conf: list[float]
     head_conf: list[float]
+    right_gripper_pos: float = 0.0
+    left_gripper_pos: float = 0.0
 
     def __post_init__(self) -> None:
         assert len(self.right_arm_conf) == NUM_ARM_JOINTS

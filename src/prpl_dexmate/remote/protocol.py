@@ -76,6 +76,27 @@ class TrajectoryDirective:
 
 
 @dataclass(frozen=True)
+class GripperDirective:
+    """Open or close one gripper.
+
+    Semantic rather than positional: the server drives the gripper to
+    dexcontrol's predefined open/close pose for the mounted end
+    effector. ``timeout`` bounds how long the server blocks on the
+    motion (the real gripper call is a short blocking command that
+    cannot be aborted mid-way, unlike trajectory streaming).
+    """
+
+    side: str
+    action: str
+    timeout: float = 5.0
+
+    def __post_init__(self) -> None:
+        assert self.side in ("left", "right")
+        assert self.action in ("open", "close")
+        assert self.timeout > 0
+
+
+@dataclass(frozen=True)
 class PolicyRolloutDirective:
     """Run a policy on the server until termination or timeout.
 
@@ -124,11 +145,16 @@ class DirectiveResult:
 
 
 Message = Union[
-    TrajectoryDirective, PolicyRolloutDirective, DirectiveResult, VegaObservation
+    TrajectoryDirective,
+    GripperDirective,
+    PolicyRolloutDirective,
+    DirectiveResult,
+    VegaObservation,
 ]
 
 _MESSAGE_TYPES: dict[str, type] = {
     "trajectory_directive": TrajectoryDirective,
+    "gripper_directive": GripperDirective,
     "policy_rollout_directive": PolicyRolloutDirective,
     "directive_result": DirectiveResult,
     "vega_observation": VegaObservation,

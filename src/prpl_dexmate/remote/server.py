@@ -25,7 +25,7 @@ import json
 import socketserver
 import threading
 import time
-from typing import Any
+from typing import Any, Callable
 
 import numpy as np
 from numpy.typing import ArrayLike, NDArray
@@ -42,6 +42,7 @@ from prpl_dexmate.remote.protocol import (
     PROTOCOL_VERSION,
     DirectiveResult,
     DirectiveStatus,
+    GripperDirective,
     PolicyRolloutDirective,
     TrajectoryDirective,
     decode_message,
@@ -146,12 +147,19 @@ class SkillServer:
             return {"ok": False, "error": f"Bad directive: {e}"}
         if isinstance(directive, PolicyRolloutDirective):
             return {"ok": False, "error": "Policy rollout is not implemented yet"}
-        if not isinstance(directive, TrajectoryDirective):
+        runner: Callable[[int, Any], None]
+        if isinstance(directive, TrajectoryDirective):
+            try:
+                validate_trajectory(
+                    directive.as_array(), directive.component, directive.hz
+                )
+            except ValueError as e:
+                return {"ok": False, "error": f"Trajectory rejected: {e}"}
+            runner = self._run_trajectory
+        elif isinstance(directive, GripperDirective):
+            runner = self._run_gripper
+        else:
             return {"ok": False, "error": "Not a directive"}
-        try:
-            validate_trajectory(directive.as_array(), directive.component, directive.hz)
-        except ValueError as e:
-            return {"ok": False, "error": f"Trajectory rejected: {e}"}
         with self._lock:
             if self._worker is not None and self._worker.is_alive():
                 return {"ok": False, "error": "A directive is already running"}
@@ -161,7 +169,7 @@ class SkillServer:
             self._stop_event.clear()
             self._stop_reason = ""
             self._worker = threading.Thread(
-                target=self._run_trajectory, args=(directive_id, directive), daemon=True
+                target=runner, args=(directive_id, directive), daemon=True
             )
             self._worker.start()
         return {"ok": True, "directive_id": directive_id}
@@ -232,6 +240,35 @@ class SkillServer:
                     max_tracking_error=max_error,
                     duration=time.monotonic() - start_time,
                 )
+        with self._lock:
+            self._results[directive_id] = result
+
+    def _run_gripper(self, directive_id: int, directive: GripperDirective) -> None:
+        gripper = {
+            "right": self._interface.right_gripper_interface,
+            "left": self._interface.left_gripper_interface,
+        }[directive.side]
+        start_time = time.monotonic()
+        # The gripper command is one short blocking call (unlike streamed
+        # trajectories) so it cannot be aborted mid-way; the watchdog and
+        # stop requests take effect only between directives.
+        try:
+            if directive.action == "open":
+                gripper.open()
+            else:
+                gripper.close()
+        except RuntimeError as e:
+            result = DirectiveResult(
+                DirectiveStatus.FAILED,
+                message=str(e),
+                duration=time.monotonic() - start_time,
+            )
+        else:
+            result = DirectiveResult(
+                DirectiveStatus.SUCCEEDED,
+                message=f"gripper position {gripper.get_position():.3f}",
+                duration=time.monotonic() - start_time,
+            )
         with self._lock:
             self._results[directive_id] = result
 

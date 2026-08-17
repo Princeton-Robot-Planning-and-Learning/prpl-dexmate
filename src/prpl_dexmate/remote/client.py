@@ -16,6 +16,7 @@ from typing import Any
 from prpl_dexmate.remote.protocol import (
     PROTOCOL_VERSION,
     DirectiveResult,
+    GripperDirective,
     Message,
     decode_message,
     encode_message,
@@ -69,6 +70,14 @@ class SkillClient:
         result = decode_message(response["result"])
         assert isinstance(result, DirectiveResult)
         return result
+
+    def open_gripper(self, side: str) -> DirectiveResult:
+        """Open one gripper and wait for the result."""
+        return self.execute_directive(GripperDirective(side=side, action="open"))
+
+    def close_gripper(self, side: str) -> DirectiveResult:
+        """Close one gripper and wait for the result."""
+        return self.execute_directive(GripperDirective(side=side, action="close"))
 
     def get_observation(self) -> VegaObservation:
         """Fetch the robot's current joint observation."""
