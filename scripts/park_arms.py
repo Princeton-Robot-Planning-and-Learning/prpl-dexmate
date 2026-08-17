@@ -71,6 +71,18 @@ def _main() -> None:
         client.close()
         planner.close()
         raise SystemExit(1) from e
+    # Convention: grippers closed whenever parked — compact, unsnaggable,
+    # and conservative relative to the collision model (which checks the
+    # open envelope). One confirmation covers both hands.
+    if args.grippers:
+        answer = input("\nClose both grippers before moving? [Y/n]: ")
+        if answer.strip().lower() in ("", "y", "yes"):
+            for side in ("right", "left"):
+                result = client.close_gripper(side)
+                print(f"{side} gripper: {result.status.value} ({result.message})")
+        else:
+            print("Leaving grippers as they are.")
+
     if not moves:
         print(f"Both arms are already at {args.to}; nothing to do.")
     for move in moves:
