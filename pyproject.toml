@@ -16,9 +16,9 @@ dependencies = [
    "kinder_bilevel_planning @ git+https://github.com/Princeton-Robot-Planning-and-Learning/kinder-baselines.git@4da339f#subdirectory=kinder-bilevel-planning",
    "kinder_models @ git+https://github.com/Princeton-Robot-Planning-and-Learning/kinder-baselines.git@4da339f#subdirectory=kinder-models",
    "kindergarden[prpl-kinematics]>=0.2.3",
-   # Floor for the symmetric Vega home (prpl-mono#530); kindergarden's extra
-   # alone does not guarantee it.
-   "prpl_kinematics>=0.0.2",
+   # Floor for the symmetric Vega home (prpl-mono#530) and the Dexgripper S
+   # model sync (prpl-mono#533); kindergarden's extra alone guarantees neither.
+   "prpl_kinematics>=0.0.3",
    "numpy",
    "opencv-python",
    "prpl_utils>=0.0.7",
