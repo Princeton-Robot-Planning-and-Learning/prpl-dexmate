@@ -147,13 +147,14 @@ def test_sim_mode_with_bilevel_planning_reaches_goal() -> None:
 def test_pickplace_sim_with_bilevel_planning_reaches_goal() -> None:
     """The planner solves a VegaPickPlace3D episode end to end in sim.
 
-    Seed 0 is the single-arm case (cube and target both reachable by one arm); planning
-    takes tens of seconds under the env's budgets.
+    With the real-table geometry, seed 4 stages cube and target both on the robot's
+    right (mirroring the first planned hardware run: a right-arm-only pick-and-place);
+    planning takes tens of seconds under the env's budgets.
     """
     with initialize(version_base=None, config_path="../conf"):
         cfg = compose(
             config_name="config",
-            overrides=["mode=sim", "env=vega_pickplace3d"],
+            overrides=["mode=sim", "env=vega_pickplace3d", "seed=4"],
         )
     summary = run_pipeline(cfg)
     assert summary.env_name == "vega_pickplace3d"
