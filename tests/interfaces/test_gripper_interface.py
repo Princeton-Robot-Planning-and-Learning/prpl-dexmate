@@ -33,17 +33,17 @@ def test_real_gripper_drives_hand_component() -> None:
 
     class _FakeHand:
         def __init__(self) -> None:
-            self.pos = [0.1]
+            self.pos = [0.0]
 
         def open_hand(self, wait_time: float = 0.0) -> None:
             """Snap to the open position."""
             del wait_time
-            self.pos = [0.6]
+            self.pos = [0.785]
 
         def close_hand(self, wait_time: float = 0.0) -> None:
             """Snap to the closed position."""
             del wait_time
-            self.pos = [0.1]
+            self.pos = [0.0]
 
         def get_joint_pos(self) -> list[float]:
             """Return the current position."""
@@ -52,6 +52,6 @@ def test_real_gripper_drives_hand_component() -> None:
     hand = _FakeHand()
     gripper = RealGripperInterface(hand, "left")
     gripper.open()
-    assert gripper.get_position() == pytest.approx(0.6)
+    assert gripper.get_position() == pytest.approx(0.785)
     gripper.close()
-    assert gripper.get_position() == pytest.approx(0.1)
+    assert gripper.get_position() == pytest.approx(0.0)
