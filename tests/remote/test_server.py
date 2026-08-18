@@ -6,6 +6,10 @@ from typing import Iterator
 import numpy as np
 import pytest
 
+from prpl_dexmate.interfaces.gripper_interface import (
+    GRIPPER_CLOSED_POS,
+    GRIPPER_OPEN_POS,
+)
 from prpl_dexmate.interfaces.interface import HOME_HEAD_CONF, FakeInterface
 from prpl_dexmate.motion import min_jerk_trajectory
 from prpl_dexmate.remote.client import SkillClient, SkillServerError
@@ -122,12 +126,16 @@ def test_gripper_directives_execute(client: SkillClient) -> None:
     result = client.open_gripper("right")
     assert result.status == DirectiveStatus.SUCCEEDED
     assert "gripper position" in result.message
-    assert client.get_observation().right_gripper_pos == pytest.approx(0.6)
+    assert client.get_observation().right_gripper_pos == pytest.approx(GRIPPER_OPEN_POS)
     # The other gripper is untouched.
-    assert client.get_observation().left_gripper_pos == pytest.approx(0.1)
+    assert client.get_observation().left_gripper_pos == pytest.approx(
+        GRIPPER_CLOSED_POS
+    )
     result = client.close_gripper("right")
     assert result.status == DirectiveStatus.SUCCEEDED
-    assert client.get_observation().right_gripper_pos == pytest.approx(0.1)
+    assert client.get_observation().right_gripper_pos == pytest.approx(
+        GRIPPER_CLOSED_POS
+    )
 
 
 def test_policy_rollout_not_implemented(client: SkillClient) -> None:

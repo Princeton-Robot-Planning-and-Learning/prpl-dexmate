@@ -11,12 +11,13 @@ import abc
 
 import numpy as np
 
-# Approximate joint readings at the two ends of travel. CLOSED matches
-# the reading measured on hardware after mounting (~0.097); OPEN is the
-# model's pose-pool value and should be refined from a hardware reading
-# during the next robot session.
-GRIPPER_CLOSED_POS = 0.1
-GRIPPER_OPEN_POS = 0.6
+# Joint readings at the two ends of travel, measured on hardware
+# (2026-08-18) by commanding dexcontrol's open/close poses over the RPC
+# stack: commanded-closed settles at ~0.003 and open at 0.785 (the full
+# joint range). A gripper closed ON an object stalls somewhere between;
+# that reading is captured the first time a real grasp happens.
+GRIPPER_CLOSED_POS = 0.0
+GRIPPER_OPEN_POS = 0.785
 
 # How long the real gripper is given to complete an open/close command.
 _GRIPPER_MOVE_SECONDS = 3.0
