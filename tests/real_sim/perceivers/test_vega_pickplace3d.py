@@ -18,6 +18,10 @@ from prpl_dexmate.structs import NUM_HEAD_JOINTS, VegaObservation
 HOME_RIGHT = (-1.809, -0.636, 0.244, -2.04, -0.841, -0.129, 0.833)
 HOME_LEFT = (1.809, 0.636, -0.244, -2.04, 0.841, 0.129, -0.833)
 
+# A plausible reading for fingers stalled on the ~6 cm cube: between the
+# empty-closed epsilon and the open threshold.
+STALLED_ON_CUBE = 0.3
+
 
 def _obs(
     right=HOME_RIGHT,
@@ -56,11 +60,34 @@ def test_reset_stages_the_scene() -> None:
 
 
 def test_closed_gripper_far_from_cube_does_not_grasp() -> None:
-    """Parked with closed grippers at home, nothing acquires the cube."""
+    """Parked with closed-empty grippers at home, nothing acquires the cube."""
     perceiver = _make_perceiver((0.55, -0.3, 0.58))
     perceiver.reset(_obs(), {})
     state = perceiver.step(_obs(), {})
     assert state.holder is None
+
+
+def test_fully_closed_fingers_near_cube_is_a_failed_grasp() -> None:
+    """Closing all the way to empty near the cube must NOT read as holding."""
+    perceiver = _make_perceiver((0.55, -0.3, 0.58))
+    perceiver.reset(_obs(), {})
+    ee_home = perceiver._ee_position(  # pylint: disable=protected-access
+        _obs(), "right"
+    )
+    perceiver = _make_perceiver(tuple(ee_home))
+    perceiver.reset(_obs(right_gripper=GRIPPER_OPEN_POS), {})
+    # The fingers sail to the empty-closed reading: grasped air.
+    state = perceiver.step(_obs(right_gripper=GRIPPER_CLOSED_POS), {})
+    assert state.holder is None
+    # With verification off (fake mode), the same reading counts as a hold.
+    lenient = VegaPickPlace3DPerceiver(
+        cube_source=ConstantTargetSource(*tuple(ee_home)),
+        target_source=ConstantTargetSource(0.6, 0.5, 0.58),
+        verify_grasps=False,
+    )
+    lenient.reset(_obs(right_gripper=GRIPPER_OPEN_POS), {})
+    state = lenient.step(_obs(right_gripper=GRIPPER_CLOSED_POS), {})
+    assert state.holder == "right"
 
 
 def test_pick_carry_place_cycle() -> None:
@@ -75,14 +102,14 @@ def test_pick_carry_place_cycle() -> None:
     perceiver = _make_perceiver(tuple(ee_home))
     perceiver.reset(_obs(right_gripper=GRIPPER_OPEN_POS), {})
 
-    # Close the gripper at the cube: right arm acquires it.
-    state = perceiver.step(_obs(right_gripper=GRIPPER_CLOSED_POS), {})
+    # Fingers stall on the cube: right arm acquires it (verified hold).
+    state = perceiver.step(_obs(right_gripper=STALLED_ON_CUBE), {})
     assert state.holder == "right"
 
     # Move the arm (wrist twist changes the ee pose): the cube rides along.
     moved = list(HOME_RIGHT)
     moved[6] += 0.5
-    state = perceiver.step(_obs(right=moved, right_gripper=GRIPPER_CLOSED_POS), {})
+    state = perceiver.step(_obs(right=moved, right_gripper=STALLED_ON_CUBE), {})
     cube = state.get_object_from_name("cube")
     ee_moved = perceiver._ee_position(  # pylint: disable=protected-access
         _obs(right=moved), "right"
@@ -99,9 +126,9 @@ def test_pick_carry_place_cycle() -> None:
     assert np.isclose(state.get(cube, "x"), ee_moved[0], atol=1e-5)
     assert np.isclose(state.get(cube, "z"), 0.58, atol=1e-5)
 
-    # Re-closing away from the cube does not re-acquire it.
+    # Re-closing (empty) away from the cube does not re-acquire it.
     state = perceiver.step(_obs(right_gripper=GRIPPER_CLOSED_POS), {})
-    assert state.holder is None or state.holder == "right"
+    assert state.holder is None
 
 
 def test_ee_fk_agrees_with_motion3d_perceiver_family() -> None:

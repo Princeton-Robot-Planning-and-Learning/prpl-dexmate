@@ -13,13 +13,19 @@ cycle using the observation alone:
 * When the holder's gripper opens, the cube is set down at the resting
   height directly beneath the end effector.
 
-Known belief-vs-reality gaps, accepted for the staged-scene stage: a
-closed-empty gripper within range is indistinguishable from a real
-grasp (grasp *verification* via the gripper's stall position is the
-planned upgrade), and a cube knocked or dropped outside the model's
-rules goes untracked. The environment's release-height discipline lives
-in the skills, not here — this tracker believes whatever the gripper
-does.
+Grasp classification is object-size independent: a gripper is "open"
+when its reading is near the open position (skills only command full
+open or full close, so anything else is an attempted hold at whatever
+stall position the object dictates), and a hold is *verified* by the
+fingers NOT closing fully — a gripper that reaches the empty-closed
+reading grasped air, whatever the object was. The fake gripper snaps
+to exactly closed, so fake-mode pipelines construct this perceiver
+with ``verify_grasps=False``.
+
+Remaining belief-vs-reality gap, accepted for the staged-scene stage: a
+cube knocked or dropped outside the model's rules goes untracked. The
+environment's release-height discipline lives in the skills, not here —
+this tracker believes whatever the gripper does.
 """
 
 from typing import Any
@@ -41,13 +47,19 @@ from prpl_utils.real_sim import Perceiver
 from relational_structs import Object
 from relational_structs.utils import create_state_from_dict
 
+from prpl_dexmate.interfaces.gripper_interface import GRIPPER_OPEN_POS
 from prpl_dexmate.real_sim.perceivers.target_source import TargetSource
 from prpl_dexmate.structs import NUM_ARM_JOINTS, VegaObservation
 
-# A gripper reading below this is treated as closed (closed reads ~0.1 on
-# hardware, open ~0.6; a gripper stalled on the 6 cm cube sits between,
-# still on the closed side of this line).
-GRIPPER_CLOSED_THRESHOLD = 0.35
+# A gripper reading above this is "open" (skills command full open, which
+# reads 0.785 on hardware); anything below is an attempted hold at
+# whatever stall position the grasped object dictates — object-size
+# independent by construction.
+GRIPPER_OPEN_THRESHOLD = GRIPPER_OPEN_POS - 0.15
+# A gripper reading below this closed fully: the hand is empty (measured
+# empty-close is ~0.003). Used to verify grasps without any per-object
+# stall constant; objects thinner than this epsilon are out of scope.
+GRIPPER_EMPTY_CLOSED_EPSILON = 0.05
 
 # Matches VegaPickPlace3DEnvConfig defaults: grasp acquisition radius and
 # the cube's resting height on the table (table_height + cube_half_size).
@@ -68,11 +80,13 @@ class VegaPickPlace3DPerceiver(
         target_source: TargetSource,
         grasp_radius: float = DEFAULT_GRASP_RADIUS,
         cube_resting_z: float = DEFAULT_CUBE_RESTING_Z,
+        verify_grasps: bool = True,
     ) -> None:
         self._cube_source = cube_source
         self._target_source = target_source
         self._grasp_radius = grasp_radius
         self._cube_resting_z = cube_resting_z
+        self._verify_grasps = verify_grasps
         robot = make_vega()
         self._tree = robot.tree
         self._home = dict(robot.home)
@@ -107,22 +121,35 @@ class VegaPickPlace3DPerceiver(
             self._tree.forward_kinematics(self._ee_frames[side], config).t
         )
 
-    def _gripper_closed(self, obs: VegaObservation, side: str) -> bool:
-        position = obs.left_gripper_pos if side == "left" else obs.right_gripper_pos
-        return position < GRIPPER_CLOSED_THRESHOLD
+    def _gripper_position(self, obs: VegaObservation, side: str) -> float:
+        return obs.left_gripper_pos if side == "left" else obs.right_gripper_pos
+
+    def _gripper_open(self, obs: VegaObservation, side: str) -> bool:
+        return self._gripper_position(obs, side) > GRIPPER_OPEN_THRESHOLD
+
+    def _gripper_empty(self, obs: VegaObservation, side: str) -> bool:
+        """Fingers closed fully: whatever was commanded, nothing is held."""
+        if not self._verify_grasps:
+            return False
+        return self._gripper_position(obs, side) < GRIPPER_EMPTY_CLOSED_EPSILON
 
     def _update_belief(self, obs: VegaObservation) -> None:
         if self._holder is not None:
-            if self._gripper_closed(obs, self._holder):
+            if self._gripper_empty(obs, self._holder):
+                # Fingers closed fully: the hold was lost (or never real);
+                # the cube stays wherever it was last believed to be.
+                self._holder = None
+            elif self._gripper_open(obs, self._holder):
+                # Released: set down at resting height beneath the ee.
+                ee = self._ee_position(obs, self._holder)
+                self._cube = np.array([ee[0], ee[1], self._cube_resting_z])
+                self._holder = None
+            else:
                 # Held cube rides the holding arm's end effector.
                 self._cube = self._ee_position(obs, self._holder)
                 return
-            # Released: set down at resting height beneath the end effector.
-            ee = self._ee_position(obs, self._holder)
-            self._cube = np.array([ee[0], ee[1], self._cube_resting_z])
-            self._holder = None
         for side in ARM_SIDES:
-            if not self._gripper_closed(obs, side):
+            if self._gripper_open(obs, side) or self._gripper_empty(obs, side):
                 continue
             ee = self._ee_position(obs, side)
             if float(np.linalg.norm(ee - self._cube)) < self._grasp_radius:
