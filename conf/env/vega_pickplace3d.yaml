@@ -10,6 +10,31 @@
 env_name: vega_pickplace3d
 env_id: kinder/VegaPickPlace3D-v0
 
+# Real table geometry in the robot base frame, measured 2026-08-18. The
+# physical table is 60 cm wide x 24 cm deep with its top 80.5 cm above
+# the floor; base_link sits 0.188 m above the floor (the chassis is not
+# in the URDF), so the top lands at z = 0.617. Placement convention:
+# near edge 34 cm in front of the chassis center, width centered on the
+# robot. Both the sim env and the planner's env models consume this
+# block, so plans and world always share one geometry.
+env_config:
+  _target_: kinder.envs.kinematic3d_v2.vega_pickplace3d.VegaPickPlace3DEnvConfig
+  _convert_: all
+  table_x_bounds: [0.34, 0.58]
+  table_y_bounds: [-0.30, 0.30]
+  table_height: 0.617
+  # The kinder defaults for the sampling region fit the default table, not
+  # ours; without this override cube/target can sample off the table and
+  # make episodes unsolvable. Bounds keep the 0.10-half-extent target
+  # patch fully on the table (0.10 margin in from every edge).
+  sample_x_bounds: [0.44, 0.48]
+  sample_y_bounds: [-0.20, 0.20]
+  # The default 0.25 m separation cannot fit on one side of this table, so
+  # every episode would need a cross-body reach or handover. 0.15 m keeps
+  # single-arm episodes in the distribution (e.g. seed 4 is a pure
+  # right-arm pick-and-place).
+  min_cube_target_distance: 0.15
+
 # Bilevel planning budgets (interpolated into conf/agent/bilevel_planning.yaml).
 # Matched to the budgets kinder-baselines' own VegaPickPlace3D planning tests
 # use: pick-and-place plans are long (up to a handover), so the skill horizon
@@ -25,6 +50,7 @@ pipelines:
     real_env:
       _target_: prpl_dexmate.sim_env.KinderSimEnv
       env_id: ${env.env_id}
+      config: ${env.env_config}
     perceiver:
       _target_: prpl_dexmate.real_sim.perceivers.passthrough.PassThroughPerceiver
     plan_executor:

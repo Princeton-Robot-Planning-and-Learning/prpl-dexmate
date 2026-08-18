@@ -61,10 +61,12 @@ GRIPPER_OPEN_THRESHOLD = GRIPPER_OPEN_POS - 0.15
 # stall constant; objects thinner than this epsilon are out of scope.
 GRIPPER_EMPTY_CLOSED_EPSILON = 0.05
 
-# Matches VegaPickPlace3DEnvConfig defaults: grasp acquisition radius and
-# the cube's resting height on the table (table_height + cube_half_size).
+# Matches the env config: grasp acquisition radius
+# (VegaPickPlace3DEnvConfig default) and the cube's resting height on the
+# real table (table_height 0.617 + cube_half_size 0.03, per the measured
+# geometry in conf/env/vega_pickplace3d.yaml).
 DEFAULT_GRASP_RADIUS = 0.10
-DEFAULT_CUBE_RESTING_Z = 0.58
+DEFAULT_CUBE_RESTING_Z = 0.647
 
 _SIDE_PREFIX = {"left": "L", "right": "R"}
 

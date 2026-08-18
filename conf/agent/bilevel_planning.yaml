@@ -12,3 +12,4 @@ env_models:
   _target_: prpl_dexmate.real_sim.build_planner_env_models
   env_name: ${env.env_name}
   env_id: ${env.env_id}
+  env_config: ${env.env_config}

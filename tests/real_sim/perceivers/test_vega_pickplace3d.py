@@ -38,7 +38,7 @@ def _obs(
     )
 
 
-def _make_perceiver(cube_xyz, target_xyz=(0.6, 0.5, 0.58)) -> VegaPickPlace3DPerceiver:
+def _make_perceiver(cube_xyz, target_xyz=(0.6, 0.5, 0.647)) -> VegaPickPlace3DPerceiver:
     return VegaPickPlace3DPerceiver(
         cube_source=ConstantTargetSource(*cube_xyz),
         target_source=ConstantTargetSource(*target_xyz),
@@ -47,12 +47,12 @@ def _make_perceiver(cube_xyz, target_xyz=(0.6, 0.5, 0.58)) -> VegaPickPlace3DPer
 
 def test_reset_stages_the_scene() -> None:
     """The cube and target come from the sources; nothing is grasped."""
-    perceiver = _make_perceiver((0.55, -0.3, 0.58))
+    perceiver = _make_perceiver((0.55, -0.3, 0.647))
     state = perceiver.reset(_obs(), {})
     cube = state.get_object_from_name("cube")
     assert np.allclose(
         [state.get(cube, "x"), state.get(cube, "y"), state.get(cube, "z")],
-        [0.55, -0.3, 0.58],
+        [0.55, -0.3, 0.647],
     )
     assert not state.grasping("left")
     assert not state.grasping("right")
@@ -61,7 +61,7 @@ def test_reset_stages_the_scene() -> None:
 
 def test_closed_gripper_far_from_cube_does_not_grasp() -> None:
     """Parked with closed-empty grippers at home, nothing acquires the cube."""
-    perceiver = _make_perceiver((0.55, -0.3, 0.58))
+    perceiver = _make_perceiver((0.55, -0.3, 0.647))
     perceiver.reset(_obs(), {})
     state = perceiver.step(_obs(), {})
     assert state.holder is None
@@ -69,7 +69,7 @@ def test_closed_gripper_far_from_cube_does_not_grasp() -> None:
 
 def test_fully_closed_fingers_near_cube_is_a_failed_grasp() -> None:
     """Closing all the way to empty near the cube must NOT read as holding."""
-    perceiver = _make_perceiver((0.55, -0.3, 0.58))
+    perceiver = _make_perceiver((0.55, -0.3, 0.647))
     perceiver.reset(_obs(), {})
     ee_home = perceiver._ee_position(  # pylint: disable=protected-access
         _obs(), "right"
@@ -82,7 +82,7 @@ def test_fully_closed_fingers_near_cube_is_a_failed_grasp() -> None:
     # With verification off (fake mode), the same reading counts as a hold.
     lenient = VegaPickPlace3DPerceiver(
         cube_source=ConstantTargetSource(*tuple(ee_home)),
-        target_source=ConstantTargetSource(0.6, 0.5, 0.58),
+        target_source=ConstantTargetSource(0.6, 0.5, 0.647),
         verify_grasps=False,
     )
     lenient.reset(_obs(right_gripper=GRIPPER_OPEN_POS), {})
@@ -92,7 +92,7 @@ def test_fully_closed_fingers_near_cube_is_a_failed_grasp() -> None:
 
 def test_pick_carry_place_cycle() -> None:
     """The belief tracks a full pick, carry, and set-down by the right arm."""
-    perceiver = _make_perceiver((0.55, -0.3, 0.58))
+    perceiver = _make_perceiver((0.55, -0.3, 0.647))
     perceiver.reset(_obs(), {})
     # Find where the right ee actually is at home, and stage the cube there
     # so a grasp is in range (the test does not need IK, just consistency).
@@ -124,7 +124,7 @@ def test_pick_carry_place_cycle() -> None:
     assert state.holder is None
     cube = state.get_object_from_name("cube")
     assert np.isclose(state.get(cube, "x"), ee_moved[0], atol=1e-5)
-    assert np.isclose(state.get(cube, "z"), 0.58, atol=1e-5)
+    assert np.isclose(state.get(cube, "z"), 0.647, atol=1e-5)
 
     # Re-closing (empty) away from the cube does not re-acquire it.
     state = perceiver.step(_obs(right_gripper=GRIPPER_CLOSED_POS), {})
@@ -133,7 +133,7 @@ def test_pick_carry_place_cycle() -> None:
 
 def test_ee_fk_agrees_with_motion3d_perceiver_family() -> None:
     """Sanity: the FK-backed ee position is finite and plausible at home."""
-    perceiver = _make_perceiver((0.5, 0.0, 0.58))
+    perceiver = _make_perceiver((0.5, 0.0, 0.647))
     ee = perceiver._ee_position(_obs(), "right")  # pylint: disable=protected-access
     assert np.all(np.isfinite(ee))
     assert 0.2 < ee[0] < 1.2 and ee[2] > 0.3

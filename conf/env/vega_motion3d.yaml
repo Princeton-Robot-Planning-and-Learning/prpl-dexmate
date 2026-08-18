@@ -3,6 +3,10 @@
 env_name: vega_motion3d
 env_id: kinder/VegaMotion3D-v0
 
+# No geometry overrides; the kinder env's defaults are the world. (The
+# pickplace env sets this to the measured real-table geometry.)
+env_config: null
+
 # Bilevel planning budgets (interpolated into conf/agent/bilevel_planning.yaml).
 planning:
   max_abstract_plans: 10
