@@ -1,7 +1,7 @@
 """The top-level interface composing both arms and the head.
 
-Keep all real-world code behind this abstraction so that the rest of the
-package is testable without the real robot.
+Keep all real-world code behind this abstraction so that the rest of the package is
+testable without the real robot.
 """
 
 import abc

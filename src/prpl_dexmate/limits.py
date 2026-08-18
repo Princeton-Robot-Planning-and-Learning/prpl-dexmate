@@ -53,9 +53,9 @@ def validate_trajectory(
 ) -> None:
     """Check a joint trajectory against URDF position and velocity limits.
 
-    Raises ValueError naming the first offending joint and frame. Position
-    limits are applied as-is (no margin): the robot can legitimately rest
-    within millimeters of a limit, e.g. joint 4 near its folded pose.
+    Raises ValueError naming the first offending joint and frame. Position limits are
+    applied as-is (no margin): the robot can legitimately rest within millimeters of a
+    limit, e.g. joint 4 near its folded pose.
     """
     trajectory = np.asarray(trajectory, dtype=float)
     lower, upper, velocity = get_joint_limits(component)

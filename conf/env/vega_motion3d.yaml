@@ -7,6 +7,9 @@ env_id: kinder/VegaMotion3D-v0
 # pickplace env sets this to the measured real-table geometry.)
 env_config: null
 
+# No objects held back from the planner's operator grounding.
+planner_exclude_objects: null
+
 # Bilevel planning budgets (interpolated into conf/agent/bilevel_planning.yaml).
 planning:
   max_abstract_plans: 10

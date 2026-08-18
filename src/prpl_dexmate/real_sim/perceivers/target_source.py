@@ -1,8 +1,8 @@
 """Sources for the target position perceived in VegaMotion3D.
 
-The sim env samples its own target; outside sim the target has to come
-from somewhere else. ConstantTargetSource is the fake/test source; a
-camera-based source can implement the same interface later.
+The sim env samples its own target; outside sim the target has to come from somewhere
+else. ConstantTargetSource is the fake/test source; a camera-based source can implement
+the same interface later.
 """
 
 import abc

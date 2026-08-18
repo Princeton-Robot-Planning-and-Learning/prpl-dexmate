@@ -13,3 +13,4 @@ env_models:
   env_name: ${env.env_name}
   env_id: ${env.env_id}
   env_config: ${env.env_config}
+  exclude_object_names: ${env.planner_exclude_objects}

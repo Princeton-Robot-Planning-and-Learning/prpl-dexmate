@@ -7,6 +7,7 @@ point builds them via @hydra.main.
 from pathlib import Path
 from typing import Iterator
 
+import numpy as np
 import pytest
 from hydra import compose, initialize
 from omegaconf import DictConfig
@@ -159,3 +160,61 @@ def test_pickplace_sim_with_bilevel_planning_reaches_goal() -> None:
     summary = run_pipeline(cfg)
     assert summary.env_name == "vega_pickplace3d"
     assert summary.finish_reason == "terminated"
+
+
+def test_pickplace_fake_mode_executes_decomposed_plan() -> None:
+    """The bilevel planner's pick-and-place runs through the fake interface.
+
+    Exercises the full decomposition path: staged-scene perceiver, per-event
+    execution (arm goals plus gripper commands), and the belief tracking of the
+    grasp cycle. The whole pick-and-place executes as one planned trajectory;
+    the rollout then ends by plan exhaustion — the fake env has no goal
+    detection.
+    """
+    with initialize(version_base=None, config_path="../conf"):
+        cfg = compose(
+            config_name="config",
+            overrides=["mode=fake", "env=vega_pickplace3d"],
+        )
+    summary = run_pipeline(cfg)
+    assert summary.mode == "fake"
+    assert summary.steps >= 1
+    assert summary.finish_reason.startswith("plan_exhausted")
+
+
+def test_pickplace_remote_mode_executes_directives(
+    skill_server: SkillServer,
+) -> None:
+    """The remote pickplace pipeline sends per-event directives to the server.
+
+    The benchless equivalent of the first planned hardware run: right-arm-only
+    pick-and-place as trajectory directives plus gripper directives against a
+    fake-interface skill server. The fake gripper closes to exactly empty, so
+    grasp verification is disabled, as in fake mode.
+    """
+    with initialize(version_base=None, config_path="../conf"):
+        cfg = compose(
+            config_name="config",
+            overrides=[
+                "mode=remote",
+                "env=vega_pickplace3d",
+                "env.pipelines.remote.real_env.host=127.0.0.1",
+                f"env.pipelines.remote.real_env.port={skill_server.port}",
+                "env.pipelines.remote.real_env.poll_period=0.05",
+                "env.pipelines.remote.real_env.confirm=false",
+                "+env.pipelines.remote.perceiver.verify_grasps=false",
+                "env.pipelines.remote.plan_executor.segment_duration=0.1",
+                "env.pipelines.remote.plan_executor.hz=20.0",
+            ],
+        )
+    summary = run_pipeline(cfg)
+    assert summary.mode == "remote"
+    assert summary.steps >= 1
+    assert summary.finish_reason.startswith("plan_exhausted")
+    # Right-arm-only: the left arm never moved off its init pose (the
+    # planner grounding excludes it), and the pick actually happened —
+    # the right arm ends away from home, gripper open after the place.
+    interface = skill_server._interface  # pylint: disable=protected-access
+    obs = interface.get_observation()
+    assert np.allclose(obs.left_arm_conf, cfg.env.init_left_arm_conf)
+    assert not np.allclose(obs.right_arm_conf, cfg.env.init_right_arm_conf)

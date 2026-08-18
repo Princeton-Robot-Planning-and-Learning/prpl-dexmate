@@ -19,7 +19,7 @@ from prpl_utils.real_sim import Runner
 from prpl_dexmate.agents import PlanExhausted
 from prpl_dexmate.motion import min_jerk_trajectory
 from prpl_dexmate.recording import RecordingRunner, VideoRecorder
-from prpl_dexmate.remote.protocol import TrajectoryDirective
+from prpl_dexmate.remote.protocol import GripperDirective, TrajectoryDirective
 from prpl_dexmate.remote_env import DirectiveRejected
 from prpl_dexmate.structs import VegaAction
 
@@ -91,27 +91,42 @@ def run_pipeline(cfg: DictConfig, log_dir: Path | str | None = None) -> RolloutS
     try:
         # Move to the env's init pose before perceiving/planning: the real
         # robot's parked pose is not a valid planning start. In fake mode
-        # one snapped setpoint suffices; in remote mode the init move is a
-        # directive like any other, a min-jerk trajectory from the current
-        # pose over env.init_move_seconds. The streaming real mode still
-        # needs a gentle move_and_wait; not yet implemented.
-        init_conf = cfg.env.get("init_right_arm_conf")
-        if init_conf is not None and cfg.mode == "fake":
-            real_env.step(VegaAction(right_arm_goal=list(init_conf)))
-        elif init_conf is not None and cfg.mode == "remote":
-            obs, _ = real_env.reset()
-            trajectory = min_jerk_trajectory(
-                np.array(obs.right_arm_conf),
-                np.array(list(init_conf)),
-                duration=float(cfg.env.get("init_move_seconds", 5.0)),
-                hz=INIT_MOVE_HZ,
-            )
-            try:
-                real_env.step(
-                    TrajectoryDirective.from_array(
-                        "right_arm", trajectory, hz=INIT_MOVE_HZ
-                    )
+        # one snapped setpoint suffices; in remote mode each init move is
+        # a directive like any other, a min-jerk trajectory from the
+        # current pose over env.init_move_seconds. The streaming real mode
+        # still needs a gentle move_and_wait; not yet implemented.
+        init_confs = {
+            component: cfg.env.get(f"init_{component}_conf")
+            for component in ("right_arm", "left_arm")
+        }
+        init_confs = {
+            component: list(conf)
+            for component, conf in init_confs.items()
+            if conf is not None
+        }
+        if init_confs and cfg.mode == "fake":
+            real_env.step(
+                VegaAction(
+                    right_arm_goal=init_confs.get("right_arm"),
+                    left_arm_goal=init_confs.get("left_arm"),
                 )
+            )
+        elif init_confs and cfg.mode == "remote":
+            obs, _ = real_env.reset()
+            current = {"right_arm": obs.right_arm_conf, "left_arm": obs.left_arm_conf}
+            try:
+                for component, conf in init_confs.items():
+                    trajectory = min_jerk_trajectory(
+                        np.array(current[component]),
+                        np.array(conf),
+                        duration=float(cfg.env.get("init_move_seconds", 5.0)),
+                        hz=INIT_MOVE_HZ,
+                    )
+                    real_env.step(
+                        TrajectoryDirective.from_array(
+                            component, trajectory, hz=INIT_MOVE_HZ
+                        )
+                    )
             except DirectiveRejected as e:
                 return RolloutSummary(
                     env_name=cfg.env.env_name,
@@ -121,6 +136,27 @@ def run_pipeline(cfg: DictConfig, log_dir: Path | str | None = None) -> RolloutS
                     finish_reason=f"directive_rejected: {e}",
                     total_reward=0.0,
                 )
+        # Grasping envs assume the rollout starts with open grippers (a
+        # plan's initial grasp commands are the status quo, so an "open"
+        # for an arm believed empty is never emitted as an event) — but
+        # the robot parks with them closed. Open them up front; in remote
+        # mode the directives pass the confirm gate like any other.
+        if bool(cfg.env.get("init_open_grippers")):
+            if cfg.mode == "fake":
+                real_env.step(VegaAction(right_gripper="open", left_gripper="open"))
+            elif cfg.mode == "remote":
+                try:
+                    for side in ("right", "left"):
+                        real_env.step(GripperDirective(side=side, action="open"))
+                except DirectiveRejected as e:
+                    return RolloutSummary(
+                        env_name=cfg.env.env_name,
+                        mode=cfg.mode,
+                        seed=cfg.seed,
+                        steps=0,
+                        finish_reason=f"directive_rejected: {e}",
+                        total_reward=0.0,
+                    )
         # The bilevel agent plans during reset, so a planning failure can
         # surface here as well as in the step loop; both end the rollout
         # cleanly rather than crashing the pipeline.

@@ -12,10 +12,14 @@ import gymnasium
 import kinder
 from bilevel_planning.structs import SesameModels
 from kinder_bilevel_planning.env_models import create_bilevel_planning_models
+from relational_structs.utils import all_ground_operators
 
 
 def build_planner_env_models(
-    env_name: str, env_id: str, env_config: Any | None = None
+    env_name: str,
+    env_id: str,
+    env_config: Any | None = None,
+    exclude_object_names: list[str] | None = None,
 ) -> SesameModels:
     """Build kinder-bilevel-planning env models for our perceiver pipeline.
 
@@ -28,6 +32,13 @@ def build_planner_env_models(
     It is forwarded to both the reference env and the factory's internal
     sim, so the planner's models assume the same world the pipeline env
     builds. ``None`` keeps the env's defaults.
+
+    ``exclude_object_names`` removes objects from the planner's operator
+    grounding without touching the state: an operator can never bind to
+    an excluded object, but the object still appears in every state. Used
+    to keep pick-and-place plans right-arm-only
+    (``exclude_object_names=["left_arm"]``) while the hardware runs are
+    single-arm.
 
     The factory's ``observation_to_state`` callback devectorizes raw
     vectorized observations, but in this pipeline the perceiver layer has
@@ -43,9 +54,28 @@ def build_planner_env_models(
         base = create_bilevel_planning_models(
             env_name, ref_env.observation_space, ref_env.action_space, **make_kwargs
         )
+        ground_operators = None
+        if exclude_object_names:
+            obs0, _ = ref_env.reset(seed=0)
+            state0 = ref_env.observation_space.devectorize(  # type: ignore[attr-defined]
+                obs0
+            )
+            excluded = set(exclude_object_names)
+            missing = excluded - set(state0.get_object_names())
+            assert not missing, f"Objects to exclude not in the env: {missing}"
+            objects = {
+                state0.get_object_from_name(name)
+                for name in state0.get_object_names()
+                if name not in excluded
+            }
+            ground_operators = all_ground_operators(base.operators, objects)
     finally:
         ref_env.close()
-    return replace(base, observation_to_state=lambda x: x)
+    return replace(
+        base,
+        observation_to_state=lambda x: x,
+        ground_operators=ground_operators,
+    )
 
 
 __all__ = ["build_planner_env_models"]

@@ -9,9 +9,12 @@ cycle using the observation alone:
 * An arm acquires the cube when its gripper reads closed and its end
   effector (forward kinematics on the observed joints) is within
   ``grasp_radius`` of the believed cube position.
-* While held, the cube rides the holding arm's end effector.
+* While held, the cube rides the holding arm rigidly, keeping the
+  cube-to-end-effector offset it had at acquisition (the env's kinematic
+  grasp does the same, and plans place the cube — offset included — onto
+  the target, so discarding the offset would bias every set-down).
 * When the holder's gripper opens, the cube is set down at the resting
-  height directly beneath the end effector.
+  height, directly beneath its carried position.
 
 Grasp classification is object-size independent: a gripper is "open"
 when its reading is near the open position (skills only command full
@@ -97,6 +100,7 @@ class VegaPickPlace3DPerceiver(
         }
         self._cube = np.zeros(3)
         self._holder: str | None = None
+        self._grasp_offset = np.zeros(3)
 
     def reset(
         self, obs: VegaObservation, info: dict[str, Any]
@@ -142,13 +146,14 @@ class VegaPickPlace3DPerceiver(
                 # the cube stays wherever it was last believed to be.
                 self._holder = None
             elif self._gripper_open(obs, self._holder):
-                # Released: set down at resting height beneath the ee.
-                ee = self._ee_position(obs, self._holder)
-                self._cube = np.array([ee[0], ee[1], self._cube_resting_z])
+                # Released: set down at resting height beneath the
+                # carried position.
+                carried = self._ee_position(obs, self._holder) + self._grasp_offset
+                self._cube = np.array([carried[0], carried[1], self._cube_resting_z])
                 self._holder = None
             else:
-                # Held cube rides the holding arm's end effector.
-                self._cube = self._ee_position(obs, self._holder)
+                # Held cube rides the holding arm rigidly.
+                self._cube = self._ee_position(obs, self._holder) + self._grasp_offset
                 return
         for side in ARM_SIDES:
             if self._gripper_open(obs, side) or self._gripper_empty(obs, side):
@@ -156,7 +161,7 @@ class VegaPickPlace3DPerceiver(
             ee = self._ee_position(obs, side)
             if float(np.linalg.norm(ee - self._cube)) < self._grasp_radius:
                 self._holder = side
-                self._cube = ee
+                self._grasp_offset = self._cube - ee
                 return
 
     def _perceive(self, obs: VegaObservation) -> VegaPickPlace3DObjectCentricState:

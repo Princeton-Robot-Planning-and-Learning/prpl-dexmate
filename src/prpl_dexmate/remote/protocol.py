@@ -174,9 +174,9 @@ def encode_message(message: Message) -> dict[str, Any]:
 def decode_message(wire: dict[str, Any]) -> Message:
     """Reconstruct a message from its wire dict.
 
-    Raises ValueError on an unknown or missing type tag, and TypeError
-    on fields that do not match the message schema, so version skew that
-    slips past the handshake still fails loudly.
+    Raises ValueError on an unknown or missing type tag, and TypeError on fields that do
+    not match the message schema, so version skew that slips past the handshake still
+    fails loudly.
     """
     fields = dict(wire)
     type_name = fields.pop("type", None)
