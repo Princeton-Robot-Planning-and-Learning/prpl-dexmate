@@ -1,8 +1,7 @@
 """A pass-through perceiver for when the env already produces the state.
 
-Used by the sim-mode pipeline (KinderSimEnv), where the real-obs type and
-the state type are the same ObjectCentricState and no perception is
-needed.
+Used by the sim-mode pipeline (KinderSimEnv), where the real-obs type and the state type
+are the same ObjectCentricState and no perception is needed.
 """
 
 from typing import Any, Generic, TypeVar

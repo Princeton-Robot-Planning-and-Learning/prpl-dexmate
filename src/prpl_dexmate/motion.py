@@ -36,18 +36,16 @@ def follow_joint_trajectory(
 ) -> float:
     """Stream a joint-space trajectory to a component at a fixed rate.
 
-    The trajectory is an array of shape (num_frames, num_joints), one frame
-    per control period. The component must already be at the first frame
-    (use move_and_wait to get there); this is checked against
-    max_start_error so a distant first frame cannot cause a violent jump.
-    Aborts by raising RuntimeError if the tracking error ever exceeds
-    max_tracking_error. Returns the maximum tracking error observed.
+    The trajectory is an array of shape (num_frames, num_joints), one frame per control
+    period. The component must already be at the first frame (use move_and_wait to get
+    there); this is checked against max_start_error so a distant first frame cannot
+    cause a violent jump. Aborts by raising RuntimeError if the tracking error ever
+    exceeds max_tracking_error. Returns the maximum tracking error observed.
 
-    If should_stop is given, it is checked once per frame; when it
-    returns True, streaming ceases and the function returns early. The
-    component then holds the last commanded position (position-control
-    semantics), which is the safe-stop behavior for a dropped or aborted
-    execution.
+    If should_stop is given, it is checked once per frame; when it returns True,
+    streaming ceases and the function returns early. The component then holds the last
+    commanded position (position-control semantics), which is the safe-stop behavior for
+    a dropped or aborted execution.
     """
     trajectory = np.asarray(trajectory, dtype=float)
     current = np.asarray(component.get_joint_pos())
@@ -84,8 +82,8 @@ def min_jerk_trajectory(
     """Generate a minimum-jerk joint trajectory between two poses.
 
     Returns an array of shape (num_frames, num_joints) suitable for
-    follow_joint_trajectory, starting exactly at start and ending at end
-    with zero velocity and acceleration at both ends.
+    follow_joint_trajectory, starting exactly at start and ending at end with zero
+    velocity and acceleration at both ends.
     """
     start = np.asarray(start, dtype=float)
     end = np.asarray(end, dtype=float)
@@ -102,10 +100,9 @@ def waypoint_trajectory(
 ) -> np.ndarray:
     """Build one trajectory through a sequence of waypoints.
 
-    Consecutive waypoints are joined by min-jerk segments of
-    segment_duration seconds each, so the motion pauses momentarily
-    (zero velocity) at every waypoint. Returns an array of shape
-    (num_frames, num_joints) for follow_joint_trajectory.
+    Consecutive waypoints are joined by min-jerk segments of segment_duration seconds
+    each, so the motion pauses momentarily (zero velocity) at every waypoint. Returns an
+    array of shape (num_frames, num_joints) for follow_joint_trajectory.
     """
     if len(waypoints) < 2:
         raise ValueError("Need at least two waypoints")

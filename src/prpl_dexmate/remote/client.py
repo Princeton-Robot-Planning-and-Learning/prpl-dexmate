@@ -53,7 +53,10 @@ class SkillClient:
             raise ProtocolMismatchError(response.get("error", "Handshake failed"))
 
     def close(self) -> None:
-        """Close the connection. The server keeps running."""
+        """Close the connection.
+
+        The server keeps running.
+        """
         self._reader.close()
         self._socket.close()
 

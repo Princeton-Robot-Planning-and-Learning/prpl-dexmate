@@ -44,14 +44,12 @@ def clip_conf_to_limits(
 ) -> tuple[NDArray[np.float64], float]:
     """Clip a configuration into URDF limits; return it and the overshoot.
 
-    Physical service can back-drive unpowered joints past their soft
-    limits (gripper mounting pushed both wrist rolls ~0.15 rad out). A
-    trajectory may not contain out-of-limit positions, so a recovery
-    move must *start* at the clipped boundary; the returned overshoot is
-    how far the real joint sits beyond it, which the caller adds to the
-    directive's start-error allowance. The first setpoint then pulls the
-    joint back inside its range, the same way a joint resettles off a
-    mechanical end-stop.
+    Physical service can back-drive unpowered joints past their soft limits (gripper
+    mounting pushed both wrist rolls ~0.15 rad out). A trajectory may not contain out-
+    of-limit positions, so a recovery move must *start* at the clipped boundary; the
+    returned overshoot is how far the real joint sits beyond it, which the caller adds
+    to the directive's start-error allowance. The first setpoint then pulls the joint
+    back inside its range, the same way a joint resettles off a mechanical end-stop.
     """
     lower, upper, _ = get_joint_limits(component)
     margin = 0.01  # Command just inside the limit, not exactly on it.

@@ -1,10 +1,9 @@
 """A pass-through plan executor for when sim and real actions coincide.
 
-Used by the sim-mode pipeline (KinderSimEnv), where the agent's sim
-action and the env's expected action are the same kinder joint-delta
-vector and no translation is needed. The executor simply emits each
-planned action in turn — one real-env tick per (state, action) pair —
-and reports done when the trajectory is exhausted.
+Used by the sim-mode pipeline (KinderSimEnv), where the agent's sim action and the env's
+expected action are the same kinder joint-delta vector and no translation is needed. The
+executor simply emits each planned action in turn — one real-env tick per (state,
+action) pair — and reports done when the trajectory is exhausted.
 """
 
 from typing import Any, Generic, TypeVar

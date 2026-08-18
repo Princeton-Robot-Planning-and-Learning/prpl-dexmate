@@ -53,6 +53,14 @@ class RealVegaEnv(gymnasium.Env[VegaObservation, VegaAction]):
             self._interface.left_arm_interface.execute_action(action.left_arm_goal)
         if action.head_goal is not None:
             self._interface.head_interface.execute_action(action.head_goal)
+        for command, gripper in (
+            (action.right_gripper, self._interface.right_gripper_interface),
+            (action.left_gripper, self._interface.left_gripper_interface),
+        ):
+            if command == "open":
+                gripper.open()
+            elif command == "close":
+                gripper.close()
         time.sleep(self._control_period)
         return self._interface.get_observation(), 0.0, False, False, {}
 

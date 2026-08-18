@@ -1,8 +1,8 @@
 """Perceiver mapping VegaObservation to a VegaMotion3D sim state.
 
-The kinder VegaMotion3D env models the right arm only (the left arm and
-head hold their home values), so the state is built from the right arm's
-joints plus a target position from the configured TargetSource.
+The kinder VegaMotion3D env models the right arm only (the left arm and head hold their
+home values), so the state is built from the right arm's joints plus a target position
+from the configured TargetSource.
 """
 
 from typing import Any

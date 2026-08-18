@@ -1,7 +1,7 @@
 """Interfaces to a joint-position-controlled robot component.
 
-Both Vega arms and the head are joint-position components; the only
-difference is the joint count, so one interface family covers all three.
+Both Vega arms and the head are joint-position components; the only difference is the
+joint count, so one interface family covers all three.
 """
 
 import abc
@@ -45,8 +45,8 @@ class JointInterface(abc.ABC):
 class FakeJointInterface(JointInterface):
     """A fake joint component that snaps instantly to commanded goals.
 
-    Snapping means a tracking executor converges on its first tick, which
-    keeps fake-mode rollouts and tests fast.
+    Snapping means a tracking executor converges on its first tick, which keeps fake-
+    mode rollouts and tests fast.
     """
 
     def __init__(self, home_conf: list[float]) -> None:

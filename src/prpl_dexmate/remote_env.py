@@ -28,9 +28,17 @@ from gymnasium.core import RenderFrame
 
 from prpl_dexmate.preview import DirectivePreviewer
 from prpl_dexmate.remote.client import SkillClient
-from prpl_dexmate.remote.protocol import DirectiveStatus, TrajectoryDirective
+from prpl_dexmate.remote.protocol import (
+    DirectiveStatus,
+    GripperDirective,
+    TrajectoryDirective,
+)
 from prpl_dexmate.remote.server import DEFAULT_PORT
 from prpl_dexmate.structs import VegaObservation
+
+# The directive kinds this env can send. PolicyRolloutDirective joins
+# once a server implements it.
+Directive = TrajectoryDirective | GripperDirective
 
 # Prompt indirection so tests can inject answers without monkeypatching
 # the `input` builtin (mirrors prpl-tidybot's preview).
@@ -41,8 +49,10 @@ class DirectiveRejected(Exception):
     """The operator rejected a directive at the confirm gate."""
 
 
-def describe_directive(directive: TrajectoryDirective) -> str:
+def describe_directive(directive: Directive) -> str:
     """A human-readable summary of what a directive will do."""
+    if isinstance(directive, GripperDirective):
+        return f"Directive: {directive.action} the {directive.side} gripper"
     trajectory = directive.as_array()
     duration = len(trajectory) / directive.hz
     start, end = trajectory[0], trajectory[-1]
@@ -67,10 +77,10 @@ def describe_directive(directive: TrajectoryDirective) -> str:
 def _flush_stdin() -> None:
     """Discard any keystrokes buffered before the gate prompt.
 
-    Planning and preview rendering can take minutes; anything typed during
-    that wait (a reflexive Enter, or worse a stray "y") would otherwise be
-    consumed by the prompt and could silently answer the safety gate. No-op
-    when stdin is not a terminal (tests, redirected input).
+    Planning and preview rendering can take minutes; anything typed during that wait (a
+    reflexive Enter, or worse a stray "y") would otherwise be consumed by the prompt and
+    could silently answer the safety gate. No-op when stdin is not a terminal (tests,
+    redirected input).
     """
     try:
         import termios  # pylint: disable=import-outside-toplevel
@@ -82,7 +92,7 @@ def _flush_stdin() -> None:
 
 
 def _confirm_or_reject(
-    directive: TrajectoryDirective,
+    directive: Directive,
     prompt_fn: PromptFn | None,
     preview_path: Path | None,
 ) -> None:
@@ -106,7 +116,7 @@ def _confirm_or_reject(
         raise DirectiveRejected(f"Directive rejected by operator (answer={answer!r})")
 
 
-class RemoteVegaEnv(gymnasium.Env[VegaObservation, TrajectoryDirective]):
+class RemoteVegaEnv(gymnasium.Env[VegaObservation, Directive]):
     """One env step = one directive executed to completion on the robot.
 
     Constructing this connects to the skill server (which performs the
@@ -144,22 +154,28 @@ class RemoteVegaEnv(gymnasium.Env[VegaObservation, TrajectoryDirective]):
         return self._client.get_observation(), {}
 
     def step(
-        self, action: TrajectoryDirective
+        self, action: Directive
     ) -> tuple[VegaObservation, SupportsFloat, bool, bool, dict[str, Any]]:
         # The gate runs strictly before the client sends anything, so a
         # rejection guarantees no motion was commanded.
         if self._confirm:
             preview_path = None
-            if self._previewer is not None:
+            if self._previewer is not None and isinstance(action, TrajectoryDirective):
                 print("Rendering preview video (shadow sim)...")
                 preview_path = self._previewer.render_directive(
-                    action, self.preview_dir
+                    action,
+                    self.preview_dir,
+                    base_obs=self._client.get_observation(),
                 )
             _confirm_or_reject(action, self._prompt_fn, preview_path)
-        duration = len(action.trajectory) / action.hz
-        print(
-            f"Executing {action.component} directive on the robot ({duration:.1f}s)..."
-        )
+        if isinstance(action, GripperDirective):
+            print(f"Executing {action.action} on the {action.side} gripper...")
+        else:
+            duration = len(action.trajectory) / action.hz
+            print(
+                f"Executing {action.component} directive on the robot "
+                f"({duration:.1f}s)..."
+            )
         result = self._client.execute_directive(action, poll_period=self._poll_period)
         if result.status is not DirectiveStatus.SUCCEEDED:
             print(

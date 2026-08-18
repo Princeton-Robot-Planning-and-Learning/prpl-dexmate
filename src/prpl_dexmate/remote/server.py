@@ -102,7 +102,10 @@ class SkillServer:
         return int(self._tcp_server.server_address[1])
 
     def serve_forever(self) -> None:
-        """Serve until close is called. Blocks."""
+        """Serve until close is called.
+
+        Blocks.
+        """
         self._tcp_server.serve_forever()
 
     def start(self) -> None:

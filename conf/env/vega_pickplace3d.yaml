@@ -2,13 +2,34 @@
 # (kindergarden #157), with bilevel planning models from kinder-baselines
 # #117.
 #
-# Sim mode only for now. The real/remote pipelines need three pieces of
-# design the motion env did not: perceiving the cube (camera or a staged
-# constant source), decomposing bimanual+grasp plans into per-component
-# directives, and grasp-state bookkeeping on the real robot.
-
 env_name: vega_pickplace3d
 env_id: kinder/VegaPickPlace3D-v0
+
+# Staged scene for the fake/remote pipelines (no camera yet: the cube and
+# target positions are configured, not perceived, and the perceiver
+# dead-reckons from there). Both are on the robot's right so the planner
+# produces a right-arm-only pick-and-place — the intended first hardware
+# run. The cube spot is the hardware-verified calibration point; place
+# the real cube there (fingertip landmark from topdown_calibration.py)
+# and mark the target patch center 15 cm to its left.
+cube_pose: [0.46, -0.16, 0.647]  # resting cube center (table 0.617 + half 0.03)
+target_pose: [0.46, -0.01, 0.6195]  # patch center, drawn on the table top
+
+# The robot parks with closed grippers, but plans assume a rollout starts
+# with empty arms open (see pipeline.py); open both before perceiving.
+init_open_grippers: true
+
+# Rollouts plan from the symmetric home; the fake interface boots at the
+# folded rest pose (not a valid planning start), and the real robot's
+# park lands here already, so the remote init moves are near-zero.
+init_right_arm_conf: [-1.809, -0.636, 0.244, -2.04, -0.841, -0.129, 0.833]
+init_left_arm_conf: [1.809, 0.636, -0.244, -2.04, 0.841, 0.129, -0.833]
+init_move_seconds: 5.0
+
+# First hardware runs are right-arm-only (no handovers): keep the left
+# arm out of the planner's operator grounding, so every plan picks and
+# places with the right gripper. Set to null to re-enable bimanual plans.
+planner_exclude_objects: [left_arm]
 
 # Real table geometry in the robot base frame, measured 2026-08-18. The
 # physical table is 60 cm wide x 24 cm deep with its top 80.5 cm above
@@ -55,3 +76,77 @@ pipelines:
       _target_: prpl_dexmate.real_sim.perceivers.passthrough.PassThroughPerceiver
     plan_executor:
       _target_: prpl_dexmate.real_sim.plan_executors.passthrough.PassThroughPlanExecutor
+  fake:
+    real_env:
+      _target_: prpl_dexmate.real_env.RealVegaEnv
+      # FakeInterface snaps to commanded goals, so the executor converges
+      # on the first tick; skip the per-tick sleep to keep tests fast.
+      control_period: 0.0
+      interface:
+        _target_: prpl_dexmate.interfaces.interface.FakeInterface
+    perceiver:
+      _target_: prpl_dexmate.real_sim.perceivers.vega_pickplace3d.VegaPickPlace3DPerceiver
+      # The fake gripper snaps to exactly closed, which the verifier
+      # would read as a failed (empty) grasp.
+      verify_grasps: false
+      cube_source:
+        _target_: prpl_dexmate.real_sim.perceivers.target_source.ConstantTargetSource
+        x: ${env.cube_pose.0}
+        y: ${env.cube_pose.1}
+        z: ${env.cube_pose.2}
+      target_source:
+        _target_: prpl_dexmate.real_sim.perceivers.target_source.ConstantTargetSource
+        x: ${env.target_pose.0}
+        y: ${env.target_pose.1}
+        z: ${env.target_pose.2}
+    plan_executor:
+      _target_: prpl_dexmate.real_sim.plan_executors.vega_pickplace3d.VegaPickPlace3DPlanExecutor
+  # One directive per plan event (arm motion run or gripper actuation)
+  # crosses the network; the skill server must be running on the robot.
+  # Start with the robot parked at home (the planning start).
+  remote:
+    real_env:
+      _target_: prpl_dexmate.remote_env.RemoteVegaEnv
+      host: localhost
+      port: 8790
+      poll_period: 0.2
+      # Pause-and-confirm gate before every directive, with shadow-sim
+      # preview videos for arm motions (gripper directives gate on the
+      # text summary alone). Disable for benchless runs with
+      #   env.pipelines.remote.real_env.confirm=false
+      confirm: true
+      previewer:
+        _target_: prpl_dexmate.preview.DirectivePreviewer
+        shadow_env:
+          _target_: prpl_dexmate.sim_env.KinderSimEnv
+          env_id: ${env.env_id}
+          config: ${env.env_config}
+          allow_state_access: true
+        perceiver:
+          _target_: prpl_dexmate.real_sim.perceivers.vega_pickplace3d.VegaPickPlace3DPerceiver
+          cube_source:
+            _target_: prpl_dexmate.real_sim.perceivers.target_source.ConstantTargetSource
+            x: ${env.cube_pose.0}
+            y: ${env.cube_pose.1}
+            z: ${env.cube_pose.2}
+          target_source:
+            _target_: prpl_dexmate.real_sim.perceivers.target_source.ConstantTargetSource
+            x: ${env.target_pose.0}
+            y: ${env.target_pose.1}
+            z: ${env.target_pose.2}
+    perceiver:
+      _target_: prpl_dexmate.real_sim.perceivers.vega_pickplace3d.VegaPickPlace3DPerceiver
+      cube_source:
+        _target_: prpl_dexmate.real_sim.perceivers.target_source.ConstantTargetSource
+        x: ${env.cube_pose.0}
+        y: ${env.cube_pose.1}
+        z: ${env.cube_pose.2}
+      target_source:
+        _target_: prpl_dexmate.real_sim.perceivers.target_source.ConstantTargetSource
+        x: ${env.target_pose.0}
+        y: ${env.target_pose.1}
+        z: ${env.target_pose.2}
+    plan_executor:
+      _target_: prpl_dexmate.real_sim.plan_executors.vega_pickplace3d.RemoteVegaPickPlace3DPlanExecutor
+      segment_duration: 1.0
+      hz: 50.0

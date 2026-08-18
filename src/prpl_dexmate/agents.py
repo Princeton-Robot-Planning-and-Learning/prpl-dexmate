@@ -1,8 +1,8 @@
 """Planning agents for the Vega pipeline.
 
-ScriptedJointDeltaAgent is a stand-in that exercises the full pipeline
-deterministically until a VegaMotion3D env model lands in kinder-baselines
-and a bilevel planning agent can take its place.
+ScriptedJointDeltaAgent is a stand-in that exercises the full pipeline deterministically
+until a VegaMotion3D env model lands in kinder-baselines and a bilevel planning agent
+can take its place.
 """
 
 from typing import Any
