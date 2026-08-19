@@ -10,6 +10,9 @@ env_config: null
 # No objects held back from the planner's operator grounding.
 planner_exclude_objects: null
 
+# No grasping in this env; the knob only applies to grasping envs.
+grasp_approach_max_tilt: null
+
 # Bilevel planning budgets (interpolated into conf/agent/bilevel_planning.yaml).
 planning:
   max_abstract_plans: 10

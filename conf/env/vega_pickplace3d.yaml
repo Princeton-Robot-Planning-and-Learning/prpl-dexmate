@@ -31,6 +31,13 @@ init_move_seconds: 5.0
 # places with the right gripper. Set to null to re-enable bimanual plans.
 planner_exclude_objects: [left_arm]
 
+# Top-down grasps: sampled pick and place configurations point the end
+# effector at most this far (radians) off straight down, yaw free, with
+# posture-preserving selection (kinder-baselines#135) — so transfers stay
+# small instead of reconfiguring the arm. Set to null for unconstrained
+# grasp orientations.
+grasp_approach_max_tilt: 0.1
+
 # Real table geometry in the robot base frame, measured 2026-08-18. The
 # physical table is 60 cm wide x 24 cm deep with its top 80.5 cm above
 # the floor; base_link sits 0.188 m above the floor (the chassis is not
