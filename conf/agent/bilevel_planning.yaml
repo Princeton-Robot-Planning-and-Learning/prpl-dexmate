@@ -14,3 +14,4 @@ env_models:
   env_id: ${env.env_id}
   env_config: ${env.env_config}
   exclude_object_names: ${env.planner_exclude_objects}
+  grasp_approach_max_tilt: ${env.grasp_approach_max_tilt}

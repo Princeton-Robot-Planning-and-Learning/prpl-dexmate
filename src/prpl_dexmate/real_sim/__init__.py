@@ -20,6 +20,7 @@ def build_planner_env_models(
     env_id: str,
     env_config: Any | None = None,
     exclude_object_names: list[str] | None = None,
+    grasp_approach_max_tilt: float | None = None,
 ) -> SesameModels:
     """Build kinder-bilevel-planning env models for our perceiver pipeline.
 
@@ -32,6 +33,12 @@ def build_planner_env_models(
     It is forwarded to both the reference env and the factory's internal
     sim, so the planner's models assume the same world the pipeline env
     builds. ``None`` keeps the env's defaults.
+
+    ``grasp_approach_max_tilt`` bounds how far (radians) the end effector
+    may point off straight down in sampled pick and place configurations,
+    yaw free (kinder-baselines#135); None leaves grasp orientations
+    unconstrained. Only forwarded when set, since not every env's factory
+    accepts it.
 
     ``exclude_object_names`` removes objects from the planner's operator
     grounding without touching the state: an operator can never bind to
@@ -49,10 +56,13 @@ def build_planner_env_models(
     """
     kinder.register_all_environments()
     make_kwargs = {} if env_config is None else {"config": env_config}
+    factory_kwargs = dict(make_kwargs)
+    if grasp_approach_max_tilt is not None:
+        factory_kwargs["grasp_approach_max_tilt"] = grasp_approach_max_tilt
     ref_env = gymnasium.make(env_id, **make_kwargs)
     try:
         base = create_bilevel_planning_models(
-            env_name, ref_env.observation_space, ref_env.action_space, **make_kwargs
+            env_name, ref_env.observation_space, ref_env.action_space, **factory_kwargs
         )
         ground_operators = None
         if exclude_object_names:

@@ -13,9 +13,14 @@ dependencies = [
    "dexmate-urdf",
    "gymnasium",
    "hydra-core",
-   "kinder_bilevel_planning @ git+https://github.com/Princeton-Robot-Planning-and-Learning/kinder-baselines.git@4da339f#subdirectory=kinder-bilevel-planning",
-   "kinder_models @ git+https://github.com/Princeton-Robot-Planning-and-Learning/kinder-baselines.git@4da339f#subdirectory=kinder-models",
+   # b762a19 = top-down grasp constraint with posture-preserving sampling
+   # (kinder-baselines#135).
+   "kinder_bilevel_planning @ git+https://github.com/Princeton-Robot-Planning-and-Learning/kinder-baselines.git@b762a19#subdirectory=kinder-bilevel-planning",
+   "kinder_models @ git+https://github.com/Princeton-Robot-Planning-and-Learning/kinder-baselines.git@b762a19#subdirectory=kinder-models",
    "kindergarden[prpl-kinematics]>=0.2.3",
+   # Without ompl the skills silently fall back to BiRRT motion planning;
+   # OMPL's RRTConnect + simplification gives near-straight joint paths.
+   "ompl",
    # Floor for the symmetric Vega home (prpl-mono#530) and the Dexgripper S
    # model sync (prpl-mono#533); kindergarden's extra alone guarantees neither.
    "prpl_kinematics>=0.0.3",
